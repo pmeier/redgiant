@@ -26,6 +26,7 @@ dependencies = [
     "fastapi",
     "httpx",
     "httpx_ws",
+    "rich",
     "typer",
     "typing_extensions >= 4.0.0; python_version<'3.11'",
     "uvicorn",
@@ -35,13 +36,13 @@ dynamic = ["version"]
 [project.urls]
 Repository = "https://github.com/pmeier/red-giant"
 
+[project.scripts]
+red-giant = "red_giant._cli:app"
+
 [tool.setuptools_scm]
 write_to = "src/red_giant/_version.py"
 version_scheme = "release-branch-semver"
 local_scheme = "node-and-date"
-
-[project.scripts]
-ragna = "red_giant._cli:app"
 
 [tool.ruff.lint]
 select = [

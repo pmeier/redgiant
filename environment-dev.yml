@@ -7,4 +7,5 @@ dependencies:
   - pip:
       - build
       - mypy
+      - pip-tools
       - twine

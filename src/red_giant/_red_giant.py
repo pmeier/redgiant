@@ -1,9 +1,10 @@
 import contextlib
 import time
-from typing import Any
+import uuid
+from typing import Any, cast
 
+import anyio
 import httpx
-from anyio import Lock
 from httpx_ws import AsyncWebSocketSession, aconnect_ws
 
 from . import schema
@@ -17,9 +18,11 @@ class RedGiant:
         self._language = language
         self._translator = Translator(host, language=language)
 
-        self._exit_stack: contextlib.AsyncExitStack()
+        self._should_close = False
+        self._exit_stack: contextlib.AsyncExitStack
         self._ws: AsyncWebSocketSession
-        self._lock = Lock()
+        self._last_response = 0.0
+        self._lock = anyio.Lock()
         self._token = ""
 
     async def connect(self) -> None:
@@ -37,16 +40,35 @@ class RedGiant:
                         host=self._host,
                         port=8082,
                         path="/ws/home/overview",
-                    )
+                    ),
                 ),
                 client,
+                keepalive_ping_interval_seconds=None,
             )
         )
+
+        background_tasks = await self._exit_stack.enter_async_context(
+            anyio.create_task_group()
+        )
+        background_tasks.start_soon(self._keepalive_ping)
 
         self._token = (await self._send("connect")).data["token"]
 
     async def close(self) -> None:
+        self._should_close = True
         await self._exit_stack.aclose()
+
+    async def _keepalive_ping(self) -> None:
+        while not self._should_close:
+            if time.time() - self._last_response >= 10.0:
+                await self.ping()
+            else:
+                await anyio.sleep(1.0)
+
+    async def ping(self) -> None:
+        await self._send_json(
+            {"lang": "zh_cn", "service": "ping", "token": ":", "id": str(uuid.uuid4())}
+        )
 
     async def get_devices(self) -> list[schema.Device]:
         response = await self._send("devicelist", is_check_token="0", type="0")
@@ -67,8 +89,8 @@ class RedGiant:
         ]
 
     async def _send(self, service: str, **kwargs: Any) -> schema.Response:
-        async with self._lock:
-            await self._ws.send_json(
+        return schema.Response.model_validate(
+            await self._send_json(
                 {
                     "lang": self._language,
                     "token": self._token,
@@ -76,10 +98,16 @@ class RedGiant:
                     **kwargs,
                 }
             )
-            data = await self._ws.receive_json()
-        response = schema.Response.model_validate(data)
-        assert response.code == 1
-        return response
+        )
+
+    async def _send_json(self, data: dict[str, Any]) -> dict[str, Any]:
+        async with self._lock:
+            await self._ws.send_json(data)
+            event = cast(dict[str, Any], await self._ws.receive_json())
+        self._last_response = time.time()
+        assert event["result_code"] == 1
+        assert event["result_msg"] == "success"
+        return event
 
     # HTTP headers should be treated case-insensitive, but the Sungrow server errors
     # unless the headers below are not send in the exact casing
@@ -98,5 +126,5 @@ class RedGiant:
         await self.connect()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type, exc_val, exc_tb):  # type: ignore[no-untyped-def]
         await self.close()

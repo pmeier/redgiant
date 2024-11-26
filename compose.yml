@@ -1,0 +1,24 @@
+#networks:
+#  sungrow:
+#
+#services:
+#  red-giant:
+#    image: "red-giant:0.1.0"
+#    container_name: red-giant
+#    command:
+#      - "serve"
+#      - "--sungrow-host=helios.local"
+#      - "--port=8000"
+#    network_mode: host
+
+networks:
+  custom:
+  custom-host:
+    driver: host
+
+services:
+  A:
+    image: nginx
+    networks:
+      - custom-host
+      - custom
