@@ -1,7 +1,6 @@
-import contextlib
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, BaseModel, Field, ValidationInfo, field_validator
+from pydantic import AfterValidator, BaseModel, Field, ValidationInfo
 
 __all__ = ["Language", "TranslatedStr", "Response", "Device"]
 
@@ -9,6 +8,7 @@ Language = Literal["zh_CN", "en_US", "de_DE", "nl_NL", "pl_PL"]
 
 
 def _translate(v: str, info: ValidationInfo) -> str:
+    return v
     if not info.context:
         return v
     translator = info.context.get("translator")
@@ -44,21 +44,14 @@ class Device(BaseModel):
     init_status: int
 
 
-class Datapoint(BaseModel):
-    name: TranslatedStr = Field(validation_alias="data_name")
-    value: Any = Field(validation_alias="data_value")
+class RawDatapoint(BaseModel):
+    i18n_code: str = Field(validation_alias="data_name")
+    value: str = Field(validation_alias="data_value")
     unit: str = Field(validation_alias="data_unit")
 
-    @field_validator("value")
-    @classmethod
-    def _try_cast_value(cls, value: Any) -> Any:
-        if not isinstance(value, str):
-            return value
 
-        with contextlib.suppress(ValueError):
-            return int(value)
-
-        with contextlib.suppress(ValueError):
-            return float(value)
-
-        return value
+class Datapoint(BaseModel):
+    i18n_code: str = Field(exclude=True)
+    description: str
+    value: float | str
+    unit: str

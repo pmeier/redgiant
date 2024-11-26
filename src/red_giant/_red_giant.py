@@ -9,7 +9,17 @@ from httpx_ws import AsyncWebSocketSession, aconnect_ws
 
 from . import schema
 from ._compat import typing_Self as Self
-from ._i18n import Translator
+
+
+class Translator:
+    def __init__(self, host: str, *, language: schema.Language) -> None:
+        response = httpx.get(
+            httpx.URL(scheme="http", host=host, path=f"/i18n/{language}.properties")
+        ).raise_for_status()
+        self._translations = dict(line.split("=", 1) for line in response.iter_lines())
+
+    def __call__(self, code: str) -> str:
+        return self._translations.get(code, code)
 
 
 class RedGiant:
@@ -76,17 +86,31 @@ class RedGiant:
             schema.Device.model_validate(device) for device in response.data["list"]
         ]
 
-    async def get_data(
-        self, *, device_id: int, timestamp: int | None = None
-    ) -> list[schema.Datapoint]:
-        if timestamp is None:
-            timestamp = int(time.time())
-        response = await self._send("real", dev_id=str(device_id), time123456=timestamp)
-        context = {"translator": self._translator}
-        return [
-            schema.Datapoint.model_validate(datapoint, context=context)
-            for datapoint in response.data["list"]
-        ]
+    async def get_data(self, *, device_id: int) -> list[schema.Datapoint]:
+        response = await self._send(
+            "real", dev_id=str(device_id), time123456=int(time.time())
+        )
+        datapoints = []
+        for data in response.data["list"]:
+            raw = schema.RawDatapoint.model_validate(data)
+
+            description = self._translator(raw.i18n_code)
+
+            value: float | str
+            try:
+                value = float(raw.value)
+            except ValueError:
+                value = self._translator(raw.value)
+
+            datapoints.append(
+                schema.Datapoint(
+                    i18n_code=raw.i18n_code,
+                    description=description,
+                    value=value,
+                    unit=raw.unit,
+                )
+            )
+        return datapoints
 
     async def _send(self, service: str, **kwargs: Any) -> schema.Response:
         return schema.Response.model_validate(

@@ -26,6 +26,7 @@ dependencies = [
     "fastapi",
     "httpx",
     "httpx_ws",
+    "prometheus-client",
     "rich",
     "typer",
     "typing_extensions >= 4.0.0; python_version<'3.11'",
