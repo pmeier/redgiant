@@ -28,7 +28,7 @@ jobs:
         id: metadata
         uses: docker/metadata-action@v5
         with:
-          images: pmeier/redgiant
+          images: ghcr.io/pmeier/redgiant
           tags: |
             type=ref,event=pr
             type=semver,pattern={{version}}
