@@ -1,0 +1,10 @@
+{{ template "base.html" . }}
+{{ define "body" }}
+<ul class="list-group">
+    <li class="list-group-item">Grid Power: {{ printf "%.1f kW" (mulf .Summary.GridPower 1e-3) }}</li>
+    <li class="list-group-item">PV Power: {{ printf "%.1f kW" (mulf .Summary.PVPower 1e-3) }}</li>
+    <li class="list-group-item">Battery Power: {{ printf "%.1f kW" (mulf .Summary.BatteryPower 1e-3) }}</li>
+    <li class="list-group-item">Load Power: {{ printf "%.1f kW" (mulf .Summary.LoadPower 1e-3) }}</li>
+    <li class="list-group-item">Battery Level: {{ printf "%.1f %%" (mulf .Summary.BatteryLevel 1e2) }}</li>
+</ul>
+{{end}}
