@@ -1,6 +1,8 @@
 # Ignore everything ...
 *
+
 # ... except for
-!src/
-!pyproject.toml
-!requirements.lock
+!internal
+!go.mod
+!go.sum
+!main.go

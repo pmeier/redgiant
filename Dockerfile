@@ -1,38 +1,20 @@
-ARG PYTHON_TAG=3.10-slim
-FROM python:$PYTHON_TAG AS python
+FROM golang:1.22-bookworm AS build
 
-FROM python AS builder
+WORKDIR /src
 
-WORKDIR /red-giant
+COPY ./go.mod .
+COPY ./go.sum .
+RUN go mod download
 
-RUN pip install --progress-bar=off virtualenv && \
-    virtualenv venv && \
-    ./venv/bin/python -m pip install build
-ENV PATH="/red-giant/venv/bin:${PATH}"
+COPY . .
+RUN CGO_ENABLED=0 go build -o /bin/redgiant .
 
-COPY requirements.lock .
-RUN pip install --progress-bar=off --no-deps --no-cache \
-    --requirement requirements.lock
+FROM gcr.io/distroless/static-debian12
+COPY --from=build /bin/redgiant /
 
-COPY . ./
-ARG VERSION
-RUN SETUPTOOLS_SCM_PRETEND_VERSION=$VERSION \
-    pip install --progress-bar=off --no-deps --no-cache \
-    .
+ENV REDGIANT_HOST=0.0.0.0
+ENV REDGIANT_PORT=80
 
-FROM python
-
-RUN useradd --no-create-home --no-log-init --shell $(which bash) solarian
-USER solarian
-WORKDIR /red-giant
-
-COPY --from=builder --chown=solarian:solarian /red-giant/venv /red-giant/venv
-ENV PATH="/red-giant/venv/bin:${PATH}"
-
-ENV RED_GIANT_HOST=0.0.0.0
-ENV RED_GIANT_PORT=80
-EXPOSE ${RED_GIANT_PORT}/tcp
-
-ENTRYPOINT ["red-giant"]
-CMD ["serve"]
-HEALTHCHECK CMD ["red-giant", "healthcheck"]
+ENTRYPOINT ["/redgiant"]
+CMD ["server"]
+# HEALTHCHECK CMD ["/redgiant", "health"]
