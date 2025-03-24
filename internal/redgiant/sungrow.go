@@ -195,7 +195,7 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 		s.Close()
 
 		switch resp.Code {
-		case 100, 103, 104:
+		case 100, 103, 104, 106:
 			// add a reconnect function with back-off
 			log.WithField("host", s.Host).Info("reconnecting")
 			err = s.Connect()
