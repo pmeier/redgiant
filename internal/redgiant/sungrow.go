@@ -96,7 +96,7 @@ func (s *Sungrow) heartbeat(ctx context.Context) {
 				continue
 			}
 			if err := s.Send("ping", map[string]any{"token": ":", "id": uuid.NewString()}, nil); err != nil {
-				log.WithError(err)
+				log.Error(err.Error())
 			}
 		}
 	}
@@ -181,13 +181,16 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 		}
 
 		var d any
-		err = json.Unmarshal(resp.Data, &d)
-		if err != nil {
-			return err
+		if err := json.Unmarshal(resp.Data, &d); err != nil {
+			d = string(resp.Data)
 		}
 		log.WithFields(log.Fields{"code": resp.Code, "message": resp.Message, "data": d}).Trace("response")
 
 		if resp.Code == 1 {
+			if v == nil {
+				return nil
+			}
+
 			return json.Unmarshal(resp.Data, v)
 		}
 
