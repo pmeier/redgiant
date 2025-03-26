@@ -9,7 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/pmeier/redgiant/internal/health"
 	"github.com/pmeier/redgiant/internal/redgiant"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 //go:embed static/*
@@ -63,7 +63,7 @@ func indexView(rg *redgiant.Redgiant, device redgiant.Device) (string, string, e
 	return http.MethodGet, "/", func(c echo.Context) error {
 		s, err := rg.Summary(device)
 		if err != nil {
-			log.WithError(err)
+			log.Error().Err(err).Send()
 			code := http.StatusInternalServerError
 			c.String(code, http.StatusText(code))
 		}

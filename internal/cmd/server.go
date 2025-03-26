@@ -6,7 +6,7 @@ import (
 	"github.com/pmeier/redgiant/internal/server"
 	"github.com/spf13/cobra"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 var serverViper = NewViper()
@@ -18,11 +18,11 @@ var serveCmd = &cobra.Command{
 		p := server.ServerParams{}
 		err := serverViper.Unmarshal(&p)
 		if err != nil {
-			log.Fatal(err.Error())
+			log.Fatal().Err(err).Send()
 		}
 
 		if err := server.Start(p); err != nil {
-			log.Error(err.Error())
+			log.Fatal().Err(err).Send()
 		}
 	},
 }

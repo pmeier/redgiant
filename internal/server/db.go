@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/pmeier/redgiant/internal/redgiant"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -46,7 +46,7 @@ func (db *DB) Start(rg *redgiant.Redgiant, device redgiant.Device, interval time
 	go func() {
 		for timestamp := range time.NewTicker(interval).C {
 			if err := db.store(rg, device, timestamp); err != nil {
-				log.WithError(err)
+				log.Error().Err(err).Send()
 			}
 		}
 	}()
@@ -58,8 +58,8 @@ func (db *DB) store(rg *redgiant.Redgiant, device redgiant.Device, timestamp tim
 		return err
 	}
 
-	log.Info("saving summary data")
-	log.WithFields(log.Fields{"timestamp": timestamp, "summary": fmt.Sprintf("%+v", s)}).Trace("")
+	log.Info().Msg("saving summary data")
+	log.Trace().Time("timestamp", timestamp).Any("summary", s).Send()
 
 	db.Create([]Data{
 		{Timestamp: timestamp, QuantityID: 1, Value: s.GridPower},

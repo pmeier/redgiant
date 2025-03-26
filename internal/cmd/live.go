@@ -1,10 +1,8 @@
 package cmd
 
 import (
-	"os"
-
 	"github.com/pmeier/redgiant/internal/live"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
@@ -17,13 +15,11 @@ var liveCmd = &cobra.Command{
 		p := live.LiveParams{}
 		err := liveViper.Unmarshal(&p)
 		if err != nil {
-			log.Fatal(err.Error())
-			os.Exit(1)
+			log.Fatal().Err(err).Send()
 		}
 
 		if err := live.Start(p); err != nil {
-			log.Fatal(err.Error())
-			os.Exit(1)
+			log.Fatal().Err(err).Send()
 		}
 	},
 }
