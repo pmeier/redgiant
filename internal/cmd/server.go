@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"time"
-
 	"github.com/pmeier/redgiant/internal/server"
 	"github.com/spf13/cobra"
 
@@ -36,12 +34,4 @@ func init() {
 
 	serveCmd.Flags().String("host", "127.0.0.1", "Hostname to bind the redgiant server to")
 	serveCmd.Flags().Uint("port", 8000, "Port to bind the redgiant server to")
-
-	serveCmd.Flags().Bool("database", false, "Store summary data periodically in a database")
-	serveCmd.Flags().Duration("store-interval", time.Minute, "Store data this often")
-	serveCmd.Flags().String("database-host", "127.0.0.1", "Hostname of the database")
-	serveCmd.Flags().Uint("database-port", 5432, "Port of the database")
-	serveCmd.Flags().String("database-username", "postgres", "Username of the database")
-	serveCmd.Flags().String("database-password", "postgres", "Password of the database")
-	serveCmd.Flags().String("database-name", "postgres", "Name of the database")
 }
