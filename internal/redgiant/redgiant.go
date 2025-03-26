@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 type Redgiant struct {
@@ -19,13 +19,13 @@ func NewRedGiant(sungrowHost string, sungrowPassword string) *Redgiant {
 }
 
 func (rg *Redgiant) Connect() error {
-	log.WithField("host", rg.sg.Host).Info("connection established")
+	log.Info().Str("host", rg.sg.Host).Msg("connection established")
 	return rg.sg.Connect()
 }
 
 func (rg *Redgiant) Close() {
 	rg.sg.Close()
-	log.WithField("host", rg.sg.Host).Info("connection closed")
+	log.Info().Str("host", rg.sg.Host).Msg("connection closed")
 }
 
 func (rg *Redgiant) About() (About, error) {
@@ -59,7 +59,7 @@ func (rg *Redgiant) State() (State, error) {
 }
 
 func (rg *Redgiant) Devices() ([]Device, error) {
-	log.Trace("RedGiant.Devices()")
+	log.Trace().Msg("RedGiant.Devices()")
 	type data struct {
 		Devices []Device `json:"list"`
 	}
@@ -81,7 +81,7 @@ var serviceMap = map[int][]string{
 }
 
 func (rg *Redgiant) RawData(device Device) ([]RawDatapoint, error) {
-	log.WithFields(log.Fields{"device": fmt.Sprintf("%+v", device)}).Trace("RedGiant.RawData()")
+	log.Trace().Any("device", device).Msg("RedGiant.RawData()")
 
 	services, ok := serviceMap[device.Type]
 	if !ok {
@@ -105,7 +105,7 @@ func (rg *Redgiant) RawData(device Device) ([]RawDatapoint, error) {
 }
 
 func (rg *Redgiant) Summary(device Device) (Summary, error) {
-	log.WithFields(log.Fields{"device": fmt.Sprintf("%+v", device)}).Trace("RedGiant.RawData()")
+	log.Trace().Any("device", device).Msg("RedGiant.Summary()")
 
 	if device.Type != 35 {
 		return Summary{}, errors.New("invalid device type for summary")

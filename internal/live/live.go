@@ -2,11 +2,12 @@ package live
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/pmeier/redgiant/internal/redgiant"
 	"github.com/pmeier/redgiant/internal/utils"
-
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 type LiveParams struct {
@@ -15,7 +16,8 @@ type LiveParams struct {
 }
 
 func Start(p LiveParams) error {
-	log.SetLevel(log.InfoLevel)
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout})
 
 	rg := redgiant.NewRedGiant(p.SungrowHost, p.SungrowPassword)
 	if err := rg.Connect(); err != nil {

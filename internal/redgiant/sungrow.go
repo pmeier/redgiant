@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"slices"
@@ -16,7 +15,8 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/google/uuid"
 )
@@ -25,6 +25,13 @@ type Response struct {
 	Code    int             `json:"result_code"`
 	Message string          `json:"result_msg"`
 	Data    json.RawMessage `json:"result_data"`
+}
+
+func (r Response) MarshalZerologObject(e *zerolog.Event) {
+	e.Int("code", r.Code).Str("message", r.Message)
+	if len(r.Data) > 0 {
+		e.RawJSON("data", r.Data)
+	}
 }
 
 type Sungrow struct {
@@ -44,10 +51,10 @@ func NewSungrow(host string, password string) *Sungrow {
 }
 
 func (s *Sungrow) Connect() error {
-	log.Trace("Redgiant.Connect()")
+	log.Trace().Msg("Redgiant.Connect()")
 
 	if s.connected {
-		log.Debug("already connected")
+		log.Debug().Msg("already connected")
 		return nil
 	}
 
@@ -100,18 +107,19 @@ func (s *Sungrow) heartbeat(ctx context.Context) {
 			if time.Since(s.lastMessage) < s.PingInterval {
 				continue
 			}
+			log.Debug().Msg("heartbeat")
 			if err := s.Send("ping", map[string]any{"token": ":", "id": uuid.NewString()}, nil); err != nil {
-				log.Error(err.Error())
+				log.Error().Err(err).Send()
 			}
 		}
 	}
 }
 
 func (s *Sungrow) Close() {
-	log.Trace("Sungrow.Close()")
+	log.Trace().Msg("Sungrow.Close()")
 
 	if s.ws == nil {
-		log.Debug("cannot close, a connection was never established")
+		log.Debug().Msg("cannot close, a connection was never established")
 		return
 	}
 
@@ -125,19 +133,19 @@ func (s *Sungrow) Close() {
 
 	wmt := websocket.CloseMessage
 	if err := s.ws.WriteMessage(wmt, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
-		log.Debug("connection closed by server")
+		log.Debug().Msg("connection closed by server")
 		return
 	}
 	rmt, _, err := s.ws.ReadMessage()
 	if err != nil {
-		log.Debug("no closing message from server")
+		log.Debug().Msg("no closing message from server")
 	} else if rmt != wmt {
-		log.WithFields(log.Fields{"write": wmt, "read": rmt}).Debug("closing handshake message type mismatch")
+		log.Debug().Int("write", wmt).Int("read", rmt).Msg("closing handshake message type mismatch")
 	}
 }
 
 func (s *Sungrow) Get(path string, params map[string]string, v any) error {
-	log.WithFields(log.Fields{"path": path, "params": params, "v": fmt.Sprintf("%#v", v)}).Trace("Sungrow.Get()")
+	log.Trace().Str("path", path).Any("params", params).Any("v", v).Msg("Sungrow.Get()")
 
 	u := url.URL{Scheme: "https", Host: s.Host, Path: path}
 	q := u.Query()
@@ -164,7 +172,7 @@ func (s *Sungrow) Get(path string, params map[string]string, v any) error {
 }
 
 func (s *Sungrow) Send(service string, params map[string]any, v any) error {
-	log.WithFields(log.Fields{"service": service, "params": params}).Trace("Sungrow.Send()")
+	log.Trace().Str("service", service).Any("params", params).Msg("Sungrow.Send()")
 
 	if !s.connected && !(service == "connect" || service == "login") {
 		return errors.New("not connected")
@@ -179,7 +187,7 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 		m[k] = v
 	}
 	for {
-		log.WithFields(m).Trace("message")
+		log.Trace().Any("m", m).Msg("message")
 		resp, err := s.send(m)
 		if err != nil {
 			return err
@@ -189,7 +197,8 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 		if err := json.Unmarshal(resp.Data, &d); err != nil {
 			d = string(resp.Data)
 		}
-		log.WithFields(log.Fields{"code": resp.Code, "message": resp.Message, "data": d}).Trace("response")
+
+		log.Trace().EmbedObject(resp).Msg("response")
 
 		if resp.Code == 1 {
 			if v == nil {
@@ -199,13 +208,13 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 			return json.Unmarshal(resp.Data, v)
 		}
 
-		log.WithFields(log.Fields{"code": resp.Code, "message": resp.Message}).Error("message unsuccessful")
+		log.Error().EmbedObject(resp).Msg("message unsuccessful")
 		s.Close()
 
 		switch resp.Code {
 		case 100, 104, 106:
 			// add a reconnect function with back-off
-			log.WithField("host", s.Host).Info("reconnecting")
+			log.Info().Str("host", s.Host).Msg("reconnecting")
 			err = s.Connect()
 		default:
 			err = errors.New("unknown server error")
@@ -227,7 +236,7 @@ var responseCodesToBeDropped = []int{
 }
 
 func (s *Sungrow) send(m map[string]any) (Response, error) {
-	log.Trace("Sungrow.send()")
+	log.Trace().Msg("Sungrow.send()")
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -247,6 +256,6 @@ func (s *Sungrow) send(m map[string]any) (Response, error) {
 			return r, nil
 		}
 
-		log.WithFields(log.Fields{"code": r.Code, "message": r.Message}).Debug("message dropped")
+		log.Debug().EmbedObject(r).Msg("message dropped")
 	}
 }
