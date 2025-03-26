@@ -24,7 +24,7 @@ type ServerParams struct {
 }
 
 func Start(p ServerParams) error {
-	log.SetLevel(log.TraceLevel)
+	log.SetLevel(log.DebugLevel)
 
 	rg := redgiant.NewRedGiant(p.SungrowHost, p.SungrowPassword)
 	if err := rg.Connect(); err != nil {

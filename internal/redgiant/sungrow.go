@@ -2,12 +2,15 @@ package redgiant
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"sync"
 	"time"
 
@@ -60,13 +63,15 @@ func (s *Sungrow) Connect() error {
 		Token string `json:"token"`
 	}
 
+	token := make([]byte, 32)
+	rand.Read(token)
 	var d data
-	err = s.Send("connect", nil, &d)
+	err = s.Send("connect", map[string]any{"token": hex.EncodeToString(token), "id": uuid.NewString()}, &d)
 	if err != nil {
 		return err
 	}
 
-	err = s.Send("login", map[string]any{"username": "user", "passwd": s.Password}, &d)
+	err = s.Send("login", map[string]any{"token": d.Token, "username": "user", "passwd": s.Password}, &d)
 	if err != nil {
 		return err
 	}
@@ -194,11 +199,11 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 			return json.Unmarshal(resp.Data, v)
 		}
 
-		log.WithFields(log.Fields{"code": resp.Code, "message": resp.Message}).Info("message unsuccessful")
+		log.WithFields(log.Fields{"code": resp.Code, "message": resp.Message}).Error("message unsuccessful")
 		s.Close()
 
 		switch resp.Code {
-		case 100, 103, 104, 106:
+		case 100, 104, 106:
 			// add a reconnect function with back-off
 			log.WithField("host", s.Host).Info("reconnecting")
 			err = s.Connect()
@@ -212,6 +217,15 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 	}
 }
 
+// Generally, there is a 1-to-1 correspondence between sent and received messages.
+// However, some messages are produced by the inverter without a corresponding one.
+// These messages have to be dropped.
+var responseCodesToBeDropped = []int{
+	// This response code is sent to indicate that the session timed out,
+	// but this only applies to the web UI
+	103,
+}
+
 func (s *Sungrow) send(m map[string]any) (Response, error) {
 	log.Trace("Sungrow.send()")
 
@@ -223,10 +237,16 @@ func (s *Sungrow) send(m map[string]any) (Response, error) {
 	}
 
 	var r Response
-	if err := s.ws.ReadJSON(&r); err != nil {
-		return Response{}, err
-	}
-	s.lastMessage = time.Now()
+	for {
+		if err := s.ws.ReadJSON(&r); err != nil {
+			return Response{}, err
+		}
+		s.lastMessage = time.Now()
 
-	return r, nil
+		if !slices.Contains(responseCodesToBeDropped, r.Code) {
+			return r, nil
+		}
+
+		log.WithFields(log.Fields{"code": r.Code, "message": r.Message}).Debug("message dropped")
+	}
 }
