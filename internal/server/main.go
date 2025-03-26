@@ -12,17 +12,10 @@ import (
 )
 
 type ServerParams struct {
-	SungrowHost      string
-	SungrowPassword  string
-	Host             string
-	Port             uint
-	Database         bool
-	StoreInterval    time.Duration
-	DatabaseHost     string
-	DatabasePort     uint
-	DatabaseUsername string
-	DatabasePassword string
-	DatabaseName     string
+	SungrowHost     string
+	SungrowPassword string
+	Host            string
+	Port            uint
 }
 
 func Start(p ServerParams) error {
@@ -40,11 +33,6 @@ func Start(p ServerParams) error {
 	s := newServer(p, rg, device)
 	if err := s.Start(5 * time.Second); err != nil {
 		return err
-	}
-
-	if p.Database {
-		db := newDB(p.DatabaseHost, p.DatabasePort, p.DatabaseUsername, p.DatabasePassword, p.DatabaseName)
-		db.Start(rg, device, p.StoreInterval)
 	}
 
 	select {}
