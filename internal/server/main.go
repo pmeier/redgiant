@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/pmeier/redgiant/internal/redgiant"
-	"github.com/pmeier/redgiant/internal/utils"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -28,9 +27,7 @@ func Start(p ServerParams) error {
 	}
 	defer rg.Close()
 
-	device := utils.Must(utils.SummaryDevice(rg))
-
-	s := newServer(p, rg, device)
+	s := newServer(p, rg)
 	if err := s.Start(5 * time.Second); err != nil {
 		return err
 	}
