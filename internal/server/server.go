@@ -18,14 +18,30 @@ var staticFS embed.FS
 //go:embed templates/*
 var templatesFS embed.FS
 
-type routeFunc = func(*redgiant.Redgiant, redgiant.Device) (string, string, echo.HandlerFunc)
+type basicRouteFunc = func() (string, string, echo.HandlerFunc)
+type routeFunc = func(*redgiant.Redgiant) (string, string, echo.HandlerFunc)
+
+func wrapBasicRouteFunc(basicRouteFunc func() (string, string, echo.HandlerFunc)) routeFunc {
+	return func(*redgiant.Redgiant) (string, string, echo.HandlerFunc) { return basicRouteFunc() }
+}
+
+func withPrefix(prefix string, rfs ...routeFunc) []routeFunc {
+	prfs := make([]routeFunc, 0, len(rfs))
+	for _, rf := range rfs {
+		prfs = append(prfs, func(rg *redgiant.Redgiant) (string, string, echo.HandlerFunc) {
+			method, route, handlerFunc := rf(rg)
+			return method, prefix + route, handlerFunc
+		})
+	}
+	return prfs
+}
 
 type Server struct {
 	*echo.Echo
 	sp ServerParams
 }
 
-func newServer(sp ServerParams, rg *redgiant.Redgiant, device redgiant.Device) *Server {
+func newServer(sp ServerParams, rg *redgiant.Redgiant) *Server {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
@@ -34,13 +50,13 @@ func newServer(sp ServerParams, rg *redgiant.Redgiant, device redgiant.Device) *
 	e.Renderer = newTemplate(templatesFS, "templates")
 
 	routeFuncs := []routeFunc{
-		func(*redgiant.Redgiant, redgiant.Device) (string, string, echo.HandlerFunc) {
-			return health.HealthRouteFunc()
-		},
-		indexView,
+		wrapBasicRouteFunc(health.HealthRouteFunc),
+		wrapBasicRouteFunc(redirectFuncFactory("/", "/ui/")),
 	}
+	routeFuncs = append(routeFuncs, withPrefix("/api", apiRouteFuncs()...)...)
+	routeFuncs = append(routeFuncs, withPrefix("/ui", uiRouteFuncs()...)...)
 	for _, routeFunc := range routeFuncs {
-		method, path, handler := routeFunc(rg, device)
+		method, path, handler := routeFunc(rg)
 		e.Add(method, path, handler)
 	}
 
@@ -52,21 +68,18 @@ func (s *Server) Start(timeout time.Duration) error {
 		s.Echo.Start(fmt.Sprintf("%s:%d", s.sp.Host, s.sp.Port))
 	}()
 
-	return health.WaitForHealthy(s.sp.Host, s.sp.Port, timeout)
+	if err := health.WaitForHealthy(s.sp.Host, s.sp.Port, timeout); err != nil {
+		return err
+	}
+
+	log.Info().Str("host", s.sp.Host).Int("port", int(s.sp.Port)).Msg("server started")
+	return nil
 }
 
-type indexData struct {
-	Summary redgiant.Summary
-}
-
-func indexView(rg *redgiant.Redgiant, device redgiant.Device) (string, string, echo.HandlerFunc) {
-	return http.MethodGet, "/", func(c echo.Context) error {
-		s, err := rg.Summary(device)
-		if err != nil {
-			log.Error().Err(err).Send()
-			code := http.StatusInternalServerError
-			c.String(code, http.StatusText(code))
+func redirectFuncFactory(src, dst string) basicRouteFunc {
+	return func() (string, string, echo.HandlerFunc) {
+		return http.MethodGet, src, func(c echo.Context) error {
+			return c.Redirect(http.StatusMovedPermanently, dst)
 		}
-		return c.Render(http.StatusOK, "index.html", indexData{s})
 	}
 }

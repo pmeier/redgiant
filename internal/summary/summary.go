@@ -7,7 +7,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/pmeier/redgiant/internal/redgiant"
-	"github.com/pmeier/redgiant/internal/utils"
 	"github.com/rs/zerolog"
 )
 
@@ -29,12 +28,8 @@ func Start(p SummaryParams) error {
 	}
 	defer rg.Close()
 
-	d, err := utils.SummaryDevice(rg)
-	if err != nil {
-		return err
-	}
-
-	s, err := rg.Summary(d)
+	// FIXME: don't hardcode this
+	s, err := rg.Summary(0)
 	if err != nil {
 		return err
 	}

@@ -11,11 +11,11 @@ import (
 
 type Redgiant struct {
 	sg *Sungrow
+	dm map[int]Device
 }
 
 func NewRedGiant(sungrowHost string, sungrowPassword string) *Redgiant {
-	sg := NewSungrow(sungrowHost, sungrowPassword)
-	return &Redgiant{sg: sg}
+	return &Redgiant{sg: NewSungrow(sungrowHost, sungrowPassword)}
 }
 
 func (rg *Redgiant) Connect() error {
@@ -58,21 +58,48 @@ func (rg *Redgiant) State() (State, error) {
 	return s, nil
 }
 
-func (rg *Redgiant) Devices() ([]Device, error) {
-	log.Trace().Msg("RedGiant.Devices()")
-	type data struct {
-		Devices []Device `json:"list"`
+func (rg *Redgiant) deviceMap() (map[int]Device, error) {
+	log.Trace().Msg("RedGiant.deviceMap()")
+
+	if rg.dm == nil {
+		type deviceList struct {
+			Devices []Device `json:"list"`
+		}
+
+		var dl deviceList
+		err := rg.sg.Send("devicelist",
+			map[string]any{
+				"is_check_token": "0",
+				"type":           "0"},
+			&dl)
+		if err != nil {
+			return nil, err
+		}
+
+		dm := map[int]Device{}
+		for _, d := range dl.Devices {
+			dm[d.ID] = d
+		}
+		rg.dm = dm
 	}
 
-	var d data
-	if err := rg.sg.Send("devicelist",
-		map[string]any{
-			"is_check_token": "0",
-			"type":           "0"},
-		&d); err != nil {
+	return rg.dm, nil
+}
+
+func (rg *Redgiant) Devices() ([]Device, error) {
+	log.Trace().Msg("RedGiant.Devices()")
+
+	dm, err := rg.deviceMap()
+	if err != nil {
 		return nil, err
 	}
-	return d.Devices, nil
+
+	ds := make([]Device, 0, len(dm))
+	for _, d := range dm {
+		ds = append(ds, d)
+	}
+
+	return ds, nil
 }
 
 var serviceMap = map[int][]string{
@@ -80,8 +107,29 @@ var serviceMap = map[int][]string{
 	44: {"real"},
 }
 
-func (rg *Redgiant) RawData(device Device) ([]RawDatapoint, error) {
-	log.Trace().Any("device", device).Msg("RedGiant.RawData()")
+func (rg *Redgiant) getDevice(deviceID int) (Device, error) {
+	dm, err := rg.deviceMap()
+	if err != nil {
+		return Device{}, err
+	}
+
+	d, ok := dm[deviceID]
+	if !ok {
+		msg := "unknown device"
+		log.Error().Int("deviceID", deviceID).Msg(msg)
+		return Device{}, errors.New(msg)
+	}
+
+	return d, nil
+}
+
+func (rg *Redgiant) RawData(deviceID int) ([]RawDatapoint, error) {
+	log.Trace().Int("deviceID", deviceID).Msg("RedGiant.RawData()")
+
+	device, err := rg.getDevice(deviceID)
+	if err != nil {
+		return nil, err
+	}
 
 	services, ok := serviceMap[device.Type]
 	if !ok {
@@ -104,14 +152,19 @@ func (rg *Redgiant) RawData(device Device) ([]RawDatapoint, error) {
 	return datapoints, nil
 }
 
-func (rg *Redgiant) Summary(device Device) (Summary, error) {
-	log.Trace().Any("device", device).Msg("RedGiant.Summary()")
+func (rg *Redgiant) Summary(deviceID int) (Summary, error) {
+	log.Trace().Int("deviceID", deviceID).Msg("RedGiant.Summary()")
+
+	device, err := rg.getDevice(deviceID)
+	if err != nil {
+		return Summary{}, err
+	}
 
 	if device.Type != 35 {
 		return Summary{}, errors.New("invalid device type for summary")
 	}
 
-	dps, err := rg.RawData(device)
+	dps, err := rg.RawData(device.ID)
 	if err != nil {
 		return Summary{}, err
 	}
