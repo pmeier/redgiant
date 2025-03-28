@@ -14,7 +14,7 @@ type Redgiant struct {
 	dm map[int]Device
 }
 
-func NewRedGiant(host string, username string, password string) *Redgiant {
+func NewRedgiant(host string, username string, password string) *Redgiant {
 	return &Redgiant{sg: NewSungrow(host, username, password)}
 }
 

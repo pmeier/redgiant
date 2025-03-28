@@ -23,7 +23,7 @@ func Start(p SummaryParams) error {
 		zerolog.SetGlobalLevel(zerolog.Disabled)
 	}
 
-	rg := redgiant.NewRedGiant(p.SungrowHost, p.SungrowUsername, p.SungrowPassword)
+	rg := redgiant.NewRedgiant(p.SungrowHost, p.SungrowUsername, p.SungrowPassword)
 	if err := rg.Connect(); err != nil {
 		return err
 	}
