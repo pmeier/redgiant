@@ -35,15 +35,14 @@ func (r Response) MarshalZerologObject(e *zerolog.Event) {
 }
 
 type Sungrow struct {
-	Host     string
-	Username string
-	Password string
-	mu       sync.Mutex
-	ws       *websocket.Conn
-	// FIXME make this an enum with disconnected / connected / loggedIn
-	connected bool
-	token     string
-	cancel    context.CancelFunc
+	Host            string
+	Username        string
+	Password        string
+	mu              sync.Mutex
+	ws              *websocket.Conn
+	connected       bool
+	token           string
+	cancelHeartbeat context.CancelFunc
 }
 
 func NewSungrow(host string, username string, password string) *Sungrow {
@@ -77,20 +76,17 @@ func (s *Sungrow) Connect() error {
 	if err != nil {
 		return err
 	}
-	// FIXME start heartbeat here
+	s.connected = true
+
+	ctx, cancel := context.WithCancel(context.Background())
+	s.cancelHeartbeat = cancel
+	go s.heartbeat(ctx)
 
 	err = s.Send("login", map[string]any{"token": d.Token, "username": "user", "passwd": s.Password}, &d)
 	if err != nil {
 		return err
 	}
-
-	s.connected = true
 	s.token = d.Token
-
-	ctx, cancel := context.WithCancel(context.Background())
-	s.cancel = cancel
-
-	go s.heartbeat(ctx)
 
 	return nil
 }
@@ -121,10 +117,11 @@ func (s *Sungrow) Close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.connected = false
-	if s.cancel != nil {
-		s.cancel()
+	s.token = ""
+	if s.cancelHeartbeat != nil {
+		s.cancelHeartbeat()
 	}
+	s.connected = false
 
 	wmt := websocket.CloseMessage
 	if err := s.ws.WriteMessage(wmt, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
@@ -133,7 +130,7 @@ func (s *Sungrow) Close() {
 	}
 	rmt, _, err := s.ws.ReadMessage()
 	if err != nil {
-		log.Debug().Msg("no closing message from server")
+		log.Debug().Err(err).Msg("no closing message from server")
 	} else if rmt != wmt {
 		log.Debug().Int("write", wmt).Int("read", rmt).Msg("closing handshake message type mismatch")
 	}
@@ -141,6 +138,10 @@ func (s *Sungrow) Close() {
 
 func (s *Sungrow) Get(path string, params map[string]string, v any) error {
 	log.Trace().Str("path", path).Any("params", params).Any("v", v).Msg("Sungrow.Get()")
+
+	if s.token == "" {
+		return errors.New("not connected")
+	}
 
 	u := url.URL{Scheme: "https", Host: s.Host, Path: path}
 	q := u.Query()
@@ -169,7 +170,7 @@ func (s *Sungrow) Get(path string, params map[string]string, v any) error {
 func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 	log.Trace().Str("service", service).Any("params", params).Msg("Sungrow.Send()")
 
-	if !s.connected && !(service == "connect" || service == "login") {
+	if (!s.connected && service == "connect") || (s.token == "" && service == "login") {
 		return errors.New("not connected")
 	}
 
