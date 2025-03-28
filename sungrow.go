@@ -35,19 +35,19 @@ func (r Response) MarshalZerologObject(e *zerolog.Event) {
 }
 
 type Sungrow struct {
-	Host         string
-	Password     string
-	PingInterval time.Duration
-	mu           sync.Mutex
-	ws           *websocket.Conn
-	connected    bool
-	token        string
-	lastMessage  time.Time
-	cancel       context.CancelFunc
+	Host     string
+	Username string
+	Password string
+	mu       sync.Mutex
+	ws       *websocket.Conn
+	// FIXME make this an enum with disconnected / connected / loggedIn
+	connected bool
+	token     string
+	cancel    context.CancelFunc
 }
 
-func NewSungrow(host string, password string) *Sungrow {
-	return &Sungrow{Host: host, Password: password, PingInterval: time.Second * 10}
+func NewSungrow(host string, username string, password string) *Sungrow {
+	return &Sungrow{Host: host, Username: username, Password: password}
 }
 
 func (s *Sungrow) Connect() error {
@@ -77,6 +77,7 @@ func (s *Sungrow) Connect() error {
 	if err != nil {
 		return err
 	}
+	// FIXME start heartbeat here
 
 	err = s.Send("login", map[string]any{"token": d.Token, "username": "user", "passwd": s.Password}, &d)
 	if err != nil {
@@ -95,18 +96,12 @@ func (s *Sungrow) Connect() error {
 }
 
 func (s *Sungrow) heartbeat(ctx context.Context) {
-	w := s.PingInterval / 10
-	if w > time.Second {
-		w = time.Second
-	}
+	ticker := time.NewTicker(time.Second * 3)
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(w):
-			if time.Since(s.lastMessage) < s.PingInterval {
-				continue
-			}
+		case <-ticker.C:
 			log.Debug().Msg("heartbeat")
 			if err := s.Send("ping", map[string]any{"token": ":", "id": uuid.NewString()}, nil); err != nil {
 				log.Error().Err(err).Send()
@@ -230,8 +225,8 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 // However, some messages are produced by the inverter without a corresponding one.
 // These messages have to be dropped.
 var responseCodesToBeDropped = []int{
-	// This response code is sent to indicate that the session timed out,
-	// but this only applies to the web UI
+	// This code indicates that the session timed out,
+	// but this only applies to the native web UI.
 	103,
 }
 
@@ -250,7 +245,6 @@ func (s *Sungrow) send(m map[string]any) (Response, error) {
 		if err := s.ws.ReadJSON(&r); err != nil {
 			return Response{}, err
 		}
-		s.lastMessage = time.Now()
 
 		if !slices.Contains(responseCodesToBeDropped, r.Code) {
 			return r, nil

@@ -2,8 +2,6 @@ module github.com/pmeier/redgiant
 
 go 1.23.0
 
-toolchain go1.23.7
-
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/google/uuid v1.6.0
