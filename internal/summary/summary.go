@@ -12,7 +12,7 @@ import (
 
 type SummaryParams struct {
 	SungrowHost     string
-	SungrowUser     string
+	SungrowUsername string
 	SungrowPassword string
 	Quiet           bool
 	JSON            bool
@@ -23,7 +23,7 @@ func Start(p SummaryParams) error {
 		zerolog.SetGlobalLevel(zerolog.Disabled)
 	}
 
-	rg := redgiant.NewRedGiant(p.SungrowHost, p.SungrowUser, p.SungrowPassword)
+	rg := redgiant.NewRedGiant(p.SungrowHost, p.SungrowUsername, p.SungrowPassword)
 	if err := rg.Connect(); err != nil {
 		return err
 	}

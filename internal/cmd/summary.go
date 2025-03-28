@@ -28,8 +28,8 @@ func init() {
 	defer summaryViper.BindPFlags(summaryCmd.Flags())
 
 	summaryCmd.Flags().String("sungrow-host", "", "Hostname of the Sungrow inverter (required)")
-	summaryCmd.Flags().String("sungrow-user", "user", "User of the Sungrow inverter")
-	summaryCmd.Flags().String("sungrow-password", "pw1111", "Password for the --sungrow-user account of the Sungrow inverter")
+	summaryCmd.Flags().String("sungrow-username", "user", "Username of the Sungrow inverter")
+	summaryCmd.Flags().String("sungrow-password", "pw1111", "Password for the --sungrow-user")
 	summaryCmd.Flags().Bool("quiet", true, "Don't output any logs")
 	summaryCmd.Flags().Bool("json", false, "Output summary as JSON. Implies --quiet=true")
 }

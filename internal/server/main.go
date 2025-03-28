@@ -12,7 +12,7 @@ import (
 
 type ServerParams struct {
 	SungrowHost     string
-	SungrowUser     string
+	SungrowUsername string
 	SungrowPassword string
 	Host            string
 	Port            uint
@@ -22,7 +22,7 @@ func Start(p ServerParams) error {
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout})
 
-	rg := redgiant.NewRedGiant(p.SungrowHost, p.SungrowHost, p.SungrowPassword)
+	rg := redgiant.NewRedGiant(p.SungrowHost, p.SungrowUsername, p.SungrowPassword)
 	if err := rg.Connect(); err != nil {
 		return err
 	}

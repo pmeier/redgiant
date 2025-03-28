@@ -36,7 +36,7 @@ func (r Response) MarshalZerologObject(e *zerolog.Event) {
 
 type Sungrow struct {
 	Host     string
-	User     string
+	Username string
 	Password string
 	mu       sync.Mutex
 	ws       *websocket.Conn
@@ -46,8 +46,8 @@ type Sungrow struct {
 	cancel    context.CancelFunc
 }
 
-func NewSungrow(host string, user string, password string) *Sungrow {
-	return &Sungrow{Host: host, User: user, Password: password}
+func NewSungrow(host string, username string, password string) *Sungrow {
+	return &Sungrow{Host: host, Username: username, Password: password}
 }
 
 func (s *Sungrow) Connect() error {
