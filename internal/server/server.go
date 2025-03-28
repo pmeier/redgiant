@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/pmeier/redgiant"
 	"github.com/pmeier/redgiant/internal/health"
-	"github.com/pmeier/redgiant/internal/redgiant"
 	"github.com/rs/zerolog/log"
 )
 

@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"github.com/pmeier/redgiant/internal/redgiant"
+	"github.com/pmeier/redgiant"
 )
 
 func uiRouteFuncs() []routeFunc {

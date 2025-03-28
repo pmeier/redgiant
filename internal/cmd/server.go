@@ -30,7 +30,8 @@ func init() {
 	defer serverViper.BindPFlags(serveCmd.Flags())
 
 	serveCmd.Flags().String("sungrow-host", "", "Hostname of the Sungrow inverter (required)")
-	serveCmd.Flags().String("sungrow-password", "pw1111", "Password for the user account of the Sungrow inverter")
+	serveCmd.Flags().String("sungrow-user", "user", "User of the Sungrow inverter")
+	serveCmd.Flags().String("sungrow-password", "pw1111", "Password for the --sungrow-user account of the Sungrow inverter")
 
 	serveCmd.Flags().String("host", "127.0.0.1", "Hostname to bind the redgiant server to")
 	serveCmd.Flags().Uint("port", 8000, "Port to bind the redgiant server to")

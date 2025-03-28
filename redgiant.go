@@ -14,8 +14,8 @@ type Redgiant struct {
 	dm map[int]Device
 }
 
-func NewRedGiant(sungrowHost string, sungrowPassword string) *Redgiant {
-	return &Redgiant{sg: NewSungrow(sungrowHost, sungrowPassword)}
+func NewRedGiant(host string, user string, password string) *Redgiant {
+	return &Redgiant{sg: NewSungrow(host, user, password)}
 }
 
 func (rg *Redgiant) Connect() error {
