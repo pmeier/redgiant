@@ -16,7 +16,6 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 
 	"github.com/google/uuid"
 )
@@ -34,14 +33,6 @@ func (r Response) MarshalZerologObject(e *zerolog.Event) {
 	}
 }
 
-type SungrowConfig struct {
-	Logger zerolog.Logger
-}
-
-func DefaultSungrowConfig() SungrowConfig {
-	return SungrowConfig{Logger: log.Logger}
-}
-
 type Sungrow struct {
 	Host            string
 	Username        string
@@ -54,9 +45,9 @@ type Sungrow struct {
 	cancelHeartbeat context.CancelFunc
 }
 
-func NewSungrow(host string, username string, password string, config ...SungrowConfig) *Sungrow {
-	o := oneOptionalOrDefault(config, DefaultSungrowConfig)
-	return &Sungrow{Host: host, Username: username, Password: password, log: o.Logger}
+func NewSungrow(host string, username string, password string, opts ...optFunc) *Sungrow {
+	o := resolveOptions(opts)
+	return &Sungrow{Host: host, Username: username, Password: password, log: o.logger}
 }
 
 func (s *Sungrow) Connect() error {

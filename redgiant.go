@@ -7,16 +7,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
-
-type RedgiantConfig struct {
-	Logger zerolog.Logger
-}
-
-func DefaultRedgiantConfig() RedgiantConfig {
-	return RedgiantConfig{Logger: log.Logger}
-}
 
 type Redgiant struct {
 	sg        *Sungrow
@@ -25,9 +16,9 @@ type Redgiant struct {
 	dm        map[int]Device
 }
 
-func NewRedgiant(sg *Sungrow, config ...RedgiantConfig) *Redgiant {
-	o := oneOptionalOrDefault(config, DefaultRedgiantConfig)
-	return &Redgiant{sg: sg, log: o.Logger}
+func NewRedgiant(sg *Sungrow, opts ...optFunc) *Redgiant {
+	o := resolveOptions(opts)
+	return &Redgiant{sg: sg, log: o.logger}
 }
 
 func (rg *Redgiant) Connect() error {
