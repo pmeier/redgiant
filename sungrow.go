@@ -170,7 +170,7 @@ func (s *Sungrow) Get(path string, params map[string]string, v any) error {
 func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 	log.Trace().Str("service", service).Any("params", params).Msg("Sungrow.Send()")
 
-	if (!s.connected && service != "connect") || (s.token == "" && service != "login") {
+	if (!s.connected && service != "connect") || (s.connected && s.token == "" && service != "login") {
 		return errors.New("not connected")
 	}
 
