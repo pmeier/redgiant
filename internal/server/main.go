@@ -22,7 +22,8 @@ func Start(p ServerParams) error {
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout})
 
-	rg := redgiant.NewRedgiant(p.SungrowHost, p.SungrowUsername, p.SungrowPassword)
+	sg := redgiant.NewSungrow(p.SungrowHost, p.SungrowUsername, p.SungrowPassword)
+	rg := redgiant.NewRedgiant(sg)
 	if err := rg.Connect(); err != nil {
 		return err
 	}

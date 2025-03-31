@@ -6,26 +6,37 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
-type Redgiant struct {
-	sg *Sungrow
-	dm map[int]Device
+type RedgiantOptions struct {
+	Logger zerolog.Logger
 }
 
-func NewRedgiant(host string, username string, password string) *Redgiant {
-	return &Redgiant{sg: NewSungrow(host, username, password)}
+func DefaultRedgiantOptions() RedgiantOptions {
+	return RedgiantOptions{Logger: log.Logger}
+}
+
+type Redgiant struct {
+	sg  *Sungrow
+	log zerolog.Logger
+	dm  map[int]Device
+}
+
+func NewRedgiant(sg *Sungrow, options ...RedgiantOptions) *Redgiant {
+	o := oneOptionalOrDefault(options, DefaultRedgiantOptions)
+	return &Redgiant{sg: sg, log: o.Logger}
 }
 
 func (rg *Redgiant) Connect() error {
-	log.Info().Str("host", rg.sg.Host).Msg("connection established")
+	rg.log.Info().Str("host", rg.sg.Host).Msg("connection established")
 	return rg.sg.Connect()
 }
 
 func (rg *Redgiant) Close() {
 	rg.sg.Close()
-	log.Info().Str("host", rg.sg.Host).Msg("connection closed")
+	rg.log.Info().Str("host", rg.sg.Host).Msg("connection closed")
 }
 
 func (rg *Redgiant) About() (About, error) {
@@ -59,7 +70,7 @@ func (rg *Redgiant) State() (State, error) {
 }
 
 func (rg *Redgiant) deviceMap() (map[int]Device, error) {
-	log.Trace().Msg("RedGiant.deviceMap()")
+	rg.log.Trace().Msg("Redgiant.deviceMap()")
 
 	if rg.dm == nil {
 		type deviceList struct {
@@ -87,7 +98,7 @@ func (rg *Redgiant) deviceMap() (map[int]Device, error) {
 }
 
 func (rg *Redgiant) Devices() ([]Device, error) {
-	log.Trace().Msg("RedGiant.Devices()")
+	rg.log.Trace().Msg("Redgiant.Devices()")
 
 	dm, err := rg.deviceMap()
 	if err != nil {
@@ -116,7 +127,7 @@ func (rg *Redgiant) getDevice(deviceID int) (Device, error) {
 	d, ok := dm[deviceID]
 	if !ok {
 		msg := "unknown device"
-		log.Error().Int("deviceID", deviceID).Msg(msg)
+		rg.log.Error().Int("deviceID", deviceID).Msg(msg)
 		return Device{}, errors.New(msg)
 	}
 
@@ -124,7 +135,7 @@ func (rg *Redgiant) getDevice(deviceID int) (Device, error) {
 }
 
 func (rg *Redgiant) RawData(deviceID int) ([]RawDatapoint, error) {
-	log.Trace().Int("deviceID", deviceID).Msg("RedGiant.RawData()")
+	rg.log.Trace().Int("deviceID", deviceID).Msg("Redgiant.RawData()")
 
 	device, err := rg.getDevice(deviceID)
 	if err != nil {
@@ -153,7 +164,7 @@ func (rg *Redgiant) RawData(deviceID int) ([]RawDatapoint, error) {
 }
 
 func (rg *Redgiant) Summary(deviceID int) (Summary, error) {
-	log.Trace().Int("deviceID", deviceID).Msg("RedGiant.Summary()")
+	rg.log.Trace().Int("deviceID", deviceID).Msg("Redgiant.Summary()")
 
 	device, err := rg.getDevice(deviceID)
 	if err != nil {
