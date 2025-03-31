@@ -10,12 +10,12 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type RedgiantOptions struct {
+type RedgiantConfig struct {
 	Logger zerolog.Logger
 }
 
-func DefaultRedgiantOptions() RedgiantOptions {
-	return RedgiantOptions{Logger: log.Logger}
+func DefaultRedgiantConfig() RedgiantConfig {
+	return RedgiantConfig{Logger: log.Logger}
 }
 
 type Redgiant struct {
@@ -24,8 +24,8 @@ type Redgiant struct {
 	dm  map[int]Device
 }
 
-func NewRedgiant(sg *Sungrow, options ...RedgiantOptions) *Redgiant {
-	o := oneOptionalOrDefault(options, DefaultRedgiantOptions)
+func NewRedgiant(sg *Sungrow, config ...RedgiantConfig) *Redgiant {
+	o := oneOptionalOrDefault(config, DefaultRedgiantConfig)
 	return &Redgiant{sg: sg, log: o.Logger}
 }
 

@@ -34,12 +34,12 @@ func (r Response) MarshalZerologObject(e *zerolog.Event) {
 	}
 }
 
-type SungrowOptions struct {
+type SungrowConfig struct {
 	Logger zerolog.Logger
 }
 
-func DefaultSungrowOptions() SungrowOptions {
-	return SungrowOptions{Logger: log.Logger}
+func DefaultSungrowConfig() SungrowConfig {
+	return SungrowConfig{Logger: log.Logger}
 }
 
 type Sungrow struct {
@@ -54,8 +54,8 @@ type Sungrow struct {
 	cancelHeartbeat context.CancelFunc
 }
 
-func NewSungrow(host string, username string, password string, options ...SungrowOptions) *Sungrow {
-	o := oneOptionalOrDefault(options, DefaultSungrowOptions)
+func NewSungrow(host string, username string, password string, config ...SungrowConfig) *Sungrow {
+	o := oneOptionalOrDefault(config, DefaultSungrowConfig)
 	return &Sungrow{Host: host, Username: username, Password: password, log: o.Logger}
 }
 

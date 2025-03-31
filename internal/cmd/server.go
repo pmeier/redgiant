@@ -3,8 +3,6 @@ package cmd
 import (
 	"github.com/pmeier/redgiant/internal/server"
 	"github.com/spf13/cobra"
-
-	"github.com/rs/zerolog/log"
 )
 
 var serverViper = NewViper()
@@ -16,11 +14,11 @@ var serveCmd = &cobra.Command{
 		p := server.ServerParams{}
 		err := serverViper.Unmarshal(&p)
 		if err != nil {
-			log.Fatal().Err(err).Send()
+			panic(err.Error())
 		}
 
 		if err := server.Start(p); err != nil {
-			log.Fatal().Err(err).Send()
+			panic(err.Error())
 		}
 	},
 }
@@ -35,4 +33,6 @@ func init() {
 
 	serveCmd.Flags().String("host", "127.0.0.1", "Hostname to bind the redgiant server to")
 	serveCmd.Flags().Uint("port", 8000, "Port to bind the redgiant server to")
+
+	serveCmd.Flags().String("log-level", "info", "Log level")
 }
