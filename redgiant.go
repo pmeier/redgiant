@@ -15,8 +15,8 @@ type Redgiant struct {
 	dm  map[int]Device
 }
 
-func NewRedgiant(sg *Sungrow, opts ...commonOptFunc) *Redgiant {
-	o := resolveCommonOpts(opts)
+func NewRedgiant(sg *Sungrow, opts ...optFunc) *Redgiant {
+	o := resolveOptions(opts)
 	return &Redgiant{sg: sg, log: o.logger}
 }
 

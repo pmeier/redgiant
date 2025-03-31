@@ -45,8 +45,8 @@ type Sungrow struct {
 	cancelHeartbeat context.CancelFunc
 }
 
-func NewSungrow(host string, username string, password string, opts ...commonOptFunc) *Sungrow {
-	o := resolveCommonOpts(opts)
+func NewSungrow(host string, username string, password string, opts ...optFunc) *Sungrow {
+	o := resolveOptions(opts)
 	return &Sungrow{Host: host, Username: username, Password: password, log: o.logger}
 }
 

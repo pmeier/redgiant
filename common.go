@@ -5,26 +5,26 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type commonOpts struct {
+type options struct {
 	logger zerolog.Logger
 }
 
-type commonOptFunc = func(*commonOpts)
+type optFunc = func(*options)
 
-func defaultCommonOpts() *commonOpts {
-	return &commonOpts{logger: log.Logger}
+func defaultOptions() *options {
+	return &options{logger: log.Logger}
 }
 
-func resolveCommonOpts(optFuncs []commonOptFunc) *commonOpts {
-	o := defaultCommonOpts()
+func resolveOptions(optFuncs []optFunc) *options {
+	opts := defaultOptions()
 	for _, fn := range optFuncs {
-		fn(o)
+		fn(opts)
 	}
-	return o
+	return opts
 }
 
-func WithLogger(l zerolog.Logger) commonOptFunc {
-	return func(opts *commonOpts) {
+func WithLogger(l zerolog.Logger) optFunc {
+	return func(opts *options) {
 		opts.logger = l
 	}
 }
