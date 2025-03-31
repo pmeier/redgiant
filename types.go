@@ -17,10 +17,15 @@ func (ib *IntBool) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type RawDatapoint struct {
+type Datapoint struct {
 	I18nCode string `json:"data_name"`
 	Value    string `json:"data_value"`
 	Unit     string `json:"data_unit"`
+}
+
+type LocalizedDatapoint struct {
+	Datapoint
+	Name string
 }
 
 type About struct {

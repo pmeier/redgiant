@@ -10,9 +10,10 @@ import (
 )
 
 type Redgiant struct {
-	sg  *Sungrow
-	log zerolog.Logger
-	dm  map[int]Device
+	sg        *Sungrow
+	log       zerolog.Logger
+	localizer Localizer
+	dm        map[int]Device
 }
 
 func NewRedgiant(sg *Sungrow, opts ...optFunc) *Redgiant {
@@ -30,7 +31,7 @@ func (rg *Redgiant) Close() {
 
 func (rg *Redgiant) About() (About, error) {
 	type data struct {
-		RawDatapoints []RawDatapoint `json:"list"`
+		RawDatapoints []Datapoint `json:"list"`
 	}
 	var d data
 	if err := rg.sg.Get("/about/list", nil, &d); err != nil {
@@ -123,8 +124,8 @@ func (rg *Redgiant) getDevice(deviceID int) (Device, error) {
 	return d, nil
 }
 
-func (rg *Redgiant) RawData(deviceID int) ([]RawDatapoint, error) {
-	rg.log.Trace().Int("deviceID", deviceID).Msg("Redgiant.RawData()")
+func (rg *Redgiant) LiveData(deviceID int) ([]Datapoint, error) {
+	rg.log.Trace().Int("deviceID", deviceID).Msg("Redgiant.LiveData()")
 
 	device, err := rg.getDevice(deviceID)
 	if err != nil {
@@ -136,9 +137,9 @@ func (rg *Redgiant) RawData(deviceID int) ([]RawDatapoint, error) {
 		return nil, fmt.Errorf("unknown device type %d", device.Type)
 	}
 
-	datapoints := []RawDatapoint{}
+	datapoints := []Datapoint{}
 	type data struct {
-		Datapoints []RawDatapoint `json:"list"`
+		Datapoints []Datapoint `json:"list"`
 	}
 	var d data
 
@@ -150,6 +151,24 @@ func (rg *Redgiant) RawData(deviceID int) ([]RawDatapoint, error) {
 	}
 
 	return datapoints, nil
+}
+
+func (rg *Redgiant) LocalizedLiveData(deviceID int, lang Language) ([]LocalizedDatapoint, error) {
+	rg.log.Trace().Int("deviceID", deviceID).Stringer("lang", lang).Msg("Redgiant.LiveData()")
+
+	ld, err := rg.LiveData(deviceID)
+	if err != nil {
+		return nil, err
+	}
+	lld := make([]LocalizedDatapoint, 0, len(ld))
+	for _, d := range ld {
+		name, err := rg.localizer.Localize(d.I18nCode, lang)
+		if err != nil {
+			return nil, err
+		}
+		lld = append(lld, LocalizedDatapoint{Datapoint: d, Name: name})
+	}
+	return lld, nil
 }
 
 func (rg *Redgiant) Summary(deviceID int) (Summary, error) {
@@ -164,7 +183,7 @@ func (rg *Redgiant) Summary(deviceID int) (Summary, error) {
 		return Summary{}, errors.New("invalid device type for summary")
 	}
 
-	dps, err := rg.RawData(device.ID)
+	dps, err := rg.LiveData(device.ID)
 	if err != nil {
 		return Summary{}, err
 	}
