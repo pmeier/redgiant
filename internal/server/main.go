@@ -1,13 +1,13 @@
 package server
 
 import (
+	"fmt"
 	"os"
 	"time"
 
 	"github.com/pmeier/redgiant"
 
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
 type ServerParams struct {
@@ -16,19 +16,32 @@ type ServerParams struct {
 	SungrowPassword string
 	Host            string
 	Port            uint
+	// FIXME: make this zerolog.LogLevel
+	LogLevel string
 }
 
 func Start(p ServerParams) error {
-	zerolog.SetGlobalLevel(zerolog.TraceLevel)
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout})
+	l, err := zerolog.ParseLevel(p.LogLevel)
+	if err != nil {
+		return fmt.Errorf("unknown log level %s", p.LogLevel)
+	}
 
-	rg := redgiant.NewRedgiant(p.SungrowHost, p.SungrowUsername, p.SungrowPassword)
+	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger().Level(l)
+
+	sgc := redgiant.DefaultSungrowConfig()
+	sgc.Logger = logger
+	sg := redgiant.NewSungrow(p.SungrowHost, p.SungrowUsername, p.SungrowPassword, sgc)
+
+	rgc := redgiant.DefaultRedgiantConfig()
+	sgc.Logger = logger
+	rg := redgiant.NewRedgiant(sg, rgc)
+
 	if err := rg.Connect(); err != nil {
 		return err
 	}
 	defer rg.Close()
 
-	s := newServer(p, rg)
+	s := newServer(p, rg, logger)
 	if err := s.Start(5 * time.Second); err != nil {
 		return err
 	}

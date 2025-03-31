@@ -5,6 +5,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/pmeier/redgiant"
+	"github.com/rs/zerolog"
 )
 
 func uiRouteFuncs() []routeFunc {
@@ -17,7 +18,7 @@ type indexData struct {
 	Summary redgiant.Summary
 }
 
-func indexView(rg *redgiant.Redgiant) (string, string, echo.HandlerFunc) {
+func indexView(rg *redgiant.Redgiant, log zerolog.Logger) (string, string, echo.HandlerFunc) {
 	return http.MethodGet, "/", func(c echo.Context) error {
 		// FIXME: don't harcode this
 		s, err := rg.Summary(1)
