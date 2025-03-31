@@ -28,13 +28,8 @@ func Start(p ServerParams) error {
 
 	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger().Level(l)
 
-	sgc := redgiant.DefaultSungrowConfig()
-	sgc.Logger = logger
-	sg := redgiant.NewSungrow(p.SungrowHost, p.SungrowUsername, p.SungrowPassword, sgc)
-
-	rgc := redgiant.DefaultRedgiantConfig()
-	sgc.Logger = logger
-	rg := redgiant.NewRedgiant(sg, rgc)
+	sg := redgiant.NewSungrow(p.SungrowHost, p.SungrowUsername, p.SungrowPassword, redgiant.WithLogger(logger))
+	rg := redgiant.NewRedgiant(sg, redgiant.WithLogger(logger))
 
 	if err := rg.Connect(); err != nil {
 		return err
