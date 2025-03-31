@@ -26,7 +26,7 @@ func Start(p ServerParams) error {
 		return fmt.Errorf("unknown log level %s", p.LogLevel)
 	}
 
-	logger := zerolog.Logger{}.Output(zerolog.ConsoleWriter{Out: os.Stdout}).Level(l)
+	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger().Level(l)
 
 	sgc := redgiant.DefaultSungrowConfig()
 	sgc.Logger = logger
@@ -41,7 +41,7 @@ func Start(p ServerParams) error {
 	}
 	defer rg.Close()
 
-	s := newServer(p, rg)
+	s := newServer(p, rg, logger)
 	if err := s.Start(5 * time.Second); err != nil {
 		return err
 	}

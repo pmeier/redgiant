@@ -30,13 +30,11 @@ func NewRedgiant(sg *Sungrow, config ...RedgiantConfig) *Redgiant {
 }
 
 func (rg *Redgiant) Connect() error {
-	rg.log.Info().Str("host", rg.sg.Host).Msg("connection established")
 	return rg.sg.Connect()
 }
 
 func (rg *Redgiant) Close() {
 	rg.sg.Close()
-	rg.log.Info().Str("host", rg.sg.Host).Msg("connection closed")
 }
 
 func (rg *Redgiant) About() (About, error) {

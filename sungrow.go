@@ -62,10 +62,13 @@ func NewSungrow(host string, username string, password string, config ...Sungrow
 func (s *Sungrow) Connect() error {
 	s.log.Trace().Msg("Redgiant.Connect()")
 
+	log := s.log.With().Str("host", s.Host).Logger()
+
 	if s.connected {
-		s.log.Debug().Msg("already connected")
+		log.Debug().Msg("already connected")
 		return nil
 	}
+	log.Info().Msg("connecting")
 
 	dialer := websocket.Dialer{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	u := url.URL{Scheme: "wss", Host: s.Host, Path: "/ws/home/overview"}
@@ -98,6 +101,7 @@ func (s *Sungrow) Connect() error {
 	}
 	s.token = d.Token
 
+	log.Info().Msg("connected")
 	return nil
 }
 
@@ -120,7 +124,7 @@ func (s *Sungrow) Close() {
 	s.log.Trace().Msg("Sungrow.Close()")
 
 	if s.ws == nil {
-		s.log.Debug().Msg("cannot close, a connection was never established")
+		s.log.Debug().Msg("already disconnected")
 		return
 	}
 
@@ -144,6 +148,8 @@ func (s *Sungrow) Close() {
 	} else if rmt != wmt {
 		s.log.Debug().Int("write", wmt).Int("read", rmt).Msg("closing handshake message type mismatch")
 	}
+
+	s.log.Info().Str("host", s.Host).Msg("disconnected")
 }
 
 func (s *Sungrow) Get(path string, params map[string]string, v any) error {

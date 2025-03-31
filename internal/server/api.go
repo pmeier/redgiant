@@ -5,6 +5,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/pmeier/redgiant"
+	"github.com/rs/zerolog"
 )
 
 func apiRouteFuncs() []routeFunc {
@@ -14,7 +15,7 @@ func apiRouteFuncs() []routeFunc {
 	}
 }
 
-func devices(rg *redgiant.Redgiant) (string, string, echo.HandlerFunc) {
+func devices(rg *redgiant.Redgiant, log zerolog.Logger) (string, string, echo.HandlerFunc) {
 	return http.MethodGet, "/devices", func(c echo.Context) error {
 		ds, err := rg.Devices()
 		if err != nil {
@@ -25,7 +26,7 @@ func devices(rg *redgiant.Redgiant) (string, string, echo.HandlerFunc) {
 	}
 }
 
-func summary(rg *redgiant.Redgiant) (string, string, echo.HandlerFunc) {
+func summary(rg *redgiant.Redgiant, log zerolog.Logger) (string, string, echo.HandlerFunc) {
 	return http.MethodGet, "/summary", func(c echo.Context) error {
 		type SummaryDevice struct {
 			DeviceID int `query:"deviceID"`
