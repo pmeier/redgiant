@@ -10,7 +10,7 @@ var hp = health.HealthParams{}
 
 var healthCmd = &cobra.Command{
 	Use:   "health",
-	Short: "Health check",
+	Short: "Check the health of the REST API",
 	Run: func(cmd *cobra.Command, args []string) {
 		health.Start(hp)
 	},

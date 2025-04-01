@@ -8,8 +8,8 @@ import (
 var serverViper = NewViper()
 
 var serveCmd = &cobra.Command{
-	Use:   "server",
-	Short: "Starts redgiant server",
+	Use:   "serve",
+	Short: "Serve the REST API",
 	Run: func(cmd *cobra.Command, args []string) {
 		p := server.ServerParams{}
 		err := serverViper.Unmarshal(&p)
@@ -25,6 +25,7 @@ var serveCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(serveCmd)
+
 	defer serverViper.BindPFlags(serveCmd.Flags())
 
 	serveCmd.Flags().String("sungrow-host", "", "Hostname of the Sungrow inverter (required)")

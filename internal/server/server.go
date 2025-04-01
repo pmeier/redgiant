@@ -1,9 +1,7 @@
 package server
 
 import (
-	"embed"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -12,31 +10,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-//go:embed static/*
-var staticFS embed.FS
-
-//go:embed templates/*
-var templatesFS embed.FS
-
-type basicRouteFunc = func() (string, string, echo.HandlerFunc)
 type routeFunc = func(*redgiant.Redgiant, zerolog.Logger) (string, string, echo.HandlerFunc)
-
-func wrapBasicRouteFunc(basicRouteFunc func() (string, string, echo.HandlerFunc)) routeFunc {
-	return func(*redgiant.Redgiant, zerolog.Logger) (string, string, echo.HandlerFunc) {
-		return basicRouteFunc()
-	}
-}
-
-func withPrefix(prefix string, rfs ...routeFunc) []routeFunc {
-	prfs := make([]routeFunc, 0, len(rfs))
-	for _, rf := range rfs {
-		prfs = append(prfs, func(rg *redgiant.Redgiant, log zerolog.Logger) (string, string, echo.HandlerFunc) {
-			method, route, handlerFunc := rf(rg, log)
-			return method, prefix + route, handlerFunc
-		})
-	}
-	return prfs
-}
 
 type Server struct {
 	*echo.Echo
@@ -49,15 +23,10 @@ func newServer(sp ServerParams, rg *redgiant.Redgiant, logger zerolog.Logger) *S
 	e.HideBanner = true
 	e.HidePort = true
 
-	e.StaticFS("/static", echo.MustSubFS(staticFS, "static"))
-	e.Renderer = newTemplate(templatesFS, "templates")
-
 	routeFuncs := []routeFunc{
 		wrapBasicRouteFunc(health.HealthRouteFunc),
-		wrapBasicRouteFunc(redirectFuncFactory("/", "/ui/")),
 	}
 	routeFuncs = append(routeFuncs, withPrefix("/api", apiRouteFuncs()...)...)
-	routeFuncs = append(routeFuncs, withPrefix("/ui", uiRouteFuncs()...)...)
 	for _, routeFunc := range routeFuncs {
 		method, path, handler := routeFunc(rg, logger)
 		e.Add(method, path, handler)
@@ -79,10 +48,19 @@ func (s *Server) Start(timeout time.Duration) error {
 	return nil
 }
 
-func redirectFuncFactory(src, dst string) basicRouteFunc {
-	return func() (string, string, echo.HandlerFunc) {
-		return http.MethodGet, src, func(c echo.Context) error {
-			return c.Redirect(http.StatusMovedPermanently, dst)
-		}
+func wrapBasicRouteFunc(basicRouteFunc func() (string, string, echo.HandlerFunc)) routeFunc {
+	return func(*redgiant.Redgiant, zerolog.Logger) (string, string, echo.HandlerFunc) {
+		return basicRouteFunc()
 	}
+}
+
+func withPrefix(prefix string, rfs ...routeFunc) []routeFunc {
+	prfs := make([]routeFunc, 0, len(rfs))
+	for _, rf := range rfs {
+		prfs = append(prfs, func(rg *redgiant.Redgiant, log zerolog.Logger) (string, string, echo.HandlerFunc) {
+			method, route, handlerFunc := rf(rg, log)
+			return method, prefix + route, handlerFunc
+		})
+	}
+	return prfs
 }

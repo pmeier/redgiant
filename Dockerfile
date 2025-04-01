@@ -16,5 +16,5 @@ ENV REDGIANT_HOST=0.0.0.0
 ENV REDGIANT_PORT=80
 
 ENTRYPOINT ["/redgiant"]
-CMD ["server"]
+CMD ["serve"]
 HEALTHCHECK CMD ["/redgiant", "health"]
