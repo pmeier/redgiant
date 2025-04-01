@@ -61,11 +61,3 @@ type Device struct {
 	LinkStatus      int    `json:"link_status"`
 	InitStatus      int    `json:"init_status"`
 }
-
-type Summary struct {
-	GridPower    float32
-	BatteryPower float32
-	PVPower      float32
-	LoadPower    float32
-	BatteryLevel float32
-}

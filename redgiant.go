@@ -3,6 +3,7 @@ package redgiant
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"time"
 
@@ -103,11 +104,6 @@ func (rg *Redgiant) Devices() ([]Device, error) {
 	return ds, nil
 }
 
-var serviceMap = map[int][]string{
-	35: {"real", "real_battery"},
-	44: {"real"},
-}
-
 func (rg *Redgiant) getDevice(deviceID int) (Device, error) {
 	dm, err := rg.deviceMap()
 	if err != nil {
@@ -124,17 +120,31 @@ func (rg *Redgiant) getDevice(deviceID int) (Device, error) {
 	return d, nil
 }
 
-func (rg *Redgiant) LiveData(deviceID int) ([]Datapoint, error) {
-	rg.log.Trace().Int("deviceID", deviceID).Msg("Redgiant.LiveData()")
+var serviceMap = map[int][]string{
+	35: {"real", "real_battery", "direct"},
+	44: {"real"},
+}
+
+func (rg *Redgiant) LiveData(deviceID int, services ...string) ([]Datapoint, error) {
+	rg.log.Trace().Int("deviceID", deviceID).Strs("services", services).Msg("Redgiant.LiveData()")
 
 	device, err := rg.getDevice(deviceID)
 	if err != nil {
 		return nil, err
 	}
 
-	services, ok := serviceMap[device.Type]
+	availableServices, ok := serviceMap[device.Type]
 	if !ok {
 		return nil, fmt.Errorf("unknown device type %d", device.Type)
+	}
+	if len(services) > 0 {
+		for _, service := range services {
+			if !slices.Contains(availableServices, service) {
+				return nil, fmt.Errorf("unknown service %s for device type %d", service, device.Type)
+			}
+		}
+	} else {
+		services = availableServices
 	}
 
 	datapoints := []Datapoint{}
@@ -173,39 +183,4 @@ func (rg *Redgiant) LocalizedLiveData(deviceID int, lang Language) ([]LocalizedD
 		lld = append(lld, LocalizedDatapoint{Datapoint: d, Name: name})
 	}
 	return lld, nil
-}
-
-func (rg *Redgiant) Summary(deviceID int) (Summary, error) {
-	rg.log.Trace().Int("deviceID", deviceID).Msg("Redgiant.Summary()")
-
-	device, err := rg.getDevice(deviceID)
-	if err != nil {
-		return Summary{}, err
-	}
-
-	if device.Type != 35 {
-		return Summary{}, errors.New("invalid device type for summary")
-	}
-
-	dps, err := rg.LiveData(device.ID)
-	if err != nil {
-		return Summary{}, err
-	}
-	vs := map[string]float32{}
-	for _, dp := range dps {
-		v, err := strconv.ParseFloat(dp.Value, 32)
-		if err != nil {
-			continue
-		}
-		vs[dp.I18nCode] = float32(v)
-	}
-
-	gridPower := (vs["I18N_CONFIG_KEY_4060"] - vs["I18N_COMMON_FEED_NETWORK_TOTAL_ACTIVE_POWER"]) * 1e3
-	batteryPower := (vs["I18N_CONFIG_KEY_3921"] - vs["I18N_CONFIG_KEY_3907"]) * 1e3
-	pvPower := vs["I18N_COMMON_TOTAL_DCPOWER"] * 1e3
-	loadPower := vs["I18N_COMMON_LOAD_TOTAL_ACTIVE_POWER"] * 1e3
-
-	batteryLevel := vs["I18N_COMMON_BATTERY_SOC"] * 1e-2
-
-	return Summary{GridPower: gridPower, BatteryPower: batteryPower, PVPower: pvPower, LoadPower: loadPower, BatteryLevel: batteryLevel}, nil
 }
