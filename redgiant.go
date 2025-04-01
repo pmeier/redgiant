@@ -170,38 +170,3 @@ func (rg *Redgiant) LocalizedLiveData(deviceID int, lang Language) ([]LocalizedD
 	}
 	return lld, nil
 }
-
-func (rg *Redgiant) Summary(deviceID int) (Summary, error) {
-	rg.log.Trace().Int("deviceID", deviceID).Msg("Redgiant.Summary()")
-
-	device, err := rg.getDevice(deviceID)
-	if err != nil {
-		return Summary{}, err
-	}
-
-	if device.Type != 35 {
-		return Summary{}, errors.New("invalid device type for summary")
-	}
-
-	dps, err := rg.LiveData(device.ID)
-	if err != nil {
-		return Summary{}, err
-	}
-	vs := map[string]float32{}
-	for _, dp := range dps {
-		v, err := strconv.ParseFloat(dp.Value, 32)
-		if err != nil {
-			continue
-		}
-		vs[dp.I18nCode] = float32(v)
-	}
-
-	gridPower := (vs["I18N_CONFIG_KEY_4060"] - vs["I18N_COMMON_FEED_NETWORK_TOTAL_ACTIVE_POWER"]) * 1e3
-	batteryPower := (vs["I18N_CONFIG_KEY_3921"] - vs["I18N_CONFIG_KEY_3907"]) * 1e3
-	pvPower := vs["I18N_COMMON_TOTAL_DCPOWER"] * 1e3
-	loadPower := vs["I18N_COMMON_LOAD_TOTAL_ACTIVE_POWER"] * 1e3
-
-	batteryLevel := vs["I18N_COMMON_BATTERY_SOC"] * 1e-2
-
-	return Summary{GridPower: gridPower, BatteryPower: batteryPower, PVPower: pvPower, LoadPower: loadPower, BatteryLevel: batteryLevel}, nil
-}

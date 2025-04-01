@@ -11,7 +11,6 @@ import (
 func apiRouteFuncs() []routeFunc {
 	return []routeFunc{
 		devices,
-		summary,
 	}
 }
 
@@ -23,25 +22,5 @@ func devices(rg *redgiant.Redgiant, log zerolog.Logger) (string, string, echo.Ha
 			return err
 		}
 		return c.JSON(http.StatusOK, ds)
-	}
-}
-
-func summary(rg *redgiant.Redgiant, log zerolog.Logger) (string, string, echo.HandlerFunc) {
-	return http.MethodGet, "/summary", func(c echo.Context) error {
-		type SummaryDevice struct {
-			DeviceID int `query:"deviceID"`
-		}
-		var sd SummaryDevice
-		err := c.Bind(&sd)
-		if err != nil {
-			// TODO: error handling
-			return c.String(http.StatusBadRequest, "bad request")
-		}
-
-		s, err := rg.Summary(sd.DeviceID)
-		if err != nil {
-			return err
-		}
-		return c.JSON(http.StatusOK, s)
 	}
 }
