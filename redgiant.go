@@ -18,7 +18,7 @@ type Redgiant struct {
 
 func NewRedgiant(sg *Sungrow, opts ...optFunc) *Redgiant {
 	o := resolveOptions(opts)
-	return &Redgiant{sg: sg, log: o.logger}
+	return &Redgiant{sg: sg, log: o.logger, localizer: o.localizer}
 }
 
 func (rg *Redgiant) Connect() error {
@@ -155,6 +155,10 @@ func (rg *Redgiant) LiveData(deviceID int) ([]Datapoint, error) {
 
 func (rg *Redgiant) LocalizedLiveData(deviceID int, lang Language) ([]LocalizedDatapoint, error) {
 	rg.log.Trace().Int("deviceID", deviceID).Stringer("lang", lang).Msg("Redgiant.LiveData()")
+
+	if rg.localizer == nil {
+		return nil, errors.New("no localizer available")
+	}
 
 	ld, err := rg.LiveData(deviceID)
 	if err != nil {

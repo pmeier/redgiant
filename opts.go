@@ -6,7 +6,8 @@ import (
 )
 
 type options struct {
-	logger zerolog.Logger
+	logger    zerolog.Logger
+	localizer Localizer
 }
 
 type optFunc = func(*options)
@@ -26,5 +27,11 @@ func resolveOptions(optFuncs []optFunc) *options {
 func WithLogger(l zerolog.Logger) optFunc {
 	return func(opts *options) {
 		opts.logger = l
+	}
+}
+
+func WithLocalizer(l Localizer) optFunc {
+	return func(opts *options) {
+		opts.localizer = l
 	}
 }
