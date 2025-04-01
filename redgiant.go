@@ -3,6 +3,7 @@ package redgiant
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"time"
 
@@ -103,11 +104,6 @@ func (rg *Redgiant) Devices() ([]Device, error) {
 	return ds, nil
 }
 
-var serviceMap = map[int][]string{
-	35: {"real", "real_battery"},
-	44: {"real"},
-}
-
 func (rg *Redgiant) getDevice(deviceID int) (Device, error) {
 	dm, err := rg.deviceMap()
 	if err != nil {
@@ -124,17 +120,31 @@ func (rg *Redgiant) getDevice(deviceID int) (Device, error) {
 	return d, nil
 }
 
-func (rg *Redgiant) LiveData(deviceID int) ([]Datapoint, error) {
-	rg.log.Trace().Int("deviceID", deviceID).Msg("Redgiant.LiveData()")
+var serviceMap = map[int][]string{
+	35: {"real", "real_battery", "direct"},
+	44: {"real"},
+}
+
+func (rg *Redgiant) LiveData(deviceID int, services ...string) ([]Datapoint, error) {
+	rg.log.Trace().Int("deviceID", deviceID).Strs("services", services).Msg("Redgiant.LiveData()")
 
 	device, err := rg.getDevice(deviceID)
 	if err != nil {
 		return nil, err
 	}
 
-	services, ok := serviceMap[device.Type]
+	availableServices, ok := serviceMap[device.Type]
 	if !ok {
 		return nil, fmt.Errorf("unknown device type %d", device.Type)
+	}
+	if len(services) > 0 {
+		for _, service := range services {
+			if !slices.Contains(availableServices, service) {
+				return nil, fmt.Errorf("unknown service %s for device type %d", service, device.Type)
+			}
+		}
+	} else {
+		services = availableServices
 	}
 
 	datapoints := []Datapoint{}
