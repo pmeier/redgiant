@@ -20,14 +20,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type URL struct {
-	url.URL
-}
-
-func (u URL) MarshalZerologObject(e *zerolog.Event) {
-	e.Str("path", u.Path).Str("query", u.Query().Encode())
-}
-
 type Response struct {
 	Code    int             `json:"result_code"`
 	Message string          `json:"result_msg"`

@@ -3,7 +3,6 @@ package redgiant
 import (
 	"errors"
 	"fmt"
-	"maps"
 	"slices"
 	"strconv"
 	"time"
