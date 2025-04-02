@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/pmeier/redgiant"
 	"github.com/pmeier/redgiant/internal/health"
 	"github.com/rs/zerolog"
@@ -22,6 +23,7 @@ func newServer(sp ServerParams, rg *redgiant.Redgiant, logger zerolog.Logger) *S
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
+	e.Debug = true
 
 	routeFuncs := []routeFunc{
 		wrapBasicRouteFunc(health.HealthRouteFunc),
@@ -32,10 +34,28 @@ func newServer(sp ServerParams, rg *redgiant.Redgiant, logger zerolog.Logger) *S
 		e.Add(method, path, handler)
 	}
 
-	return &Server{Echo: e, sp: sp}
+	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogRemoteIP: true,
+		LogURI:      true,
+		LogStatus:   true,
+		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+			logger.Info().
+				Str("origin", v.RemoteIP).
+				Str("path", v.URI).
+				Int("status_code", v.Status).
+				Msg("request")
+
+			return nil
+		},
+	}))
+
+	return &Server{Echo: e, sp: sp, log: logger}
 }
 
 func (s *Server) Start(timeout time.Duration) error {
+	log := s.log.With().Str("host", s.sp.Host).Int("port", int(s.sp.Port)).Logger()
+	log.Info().Msg("starting")
+
 	go func() {
 		s.Echo.Start(fmt.Sprintf("%s:%d", s.sp.Host, s.sp.Port))
 	}()
@@ -44,7 +64,7 @@ func (s *Server) Start(timeout time.Duration) error {
 		return err
 	}
 
-	s.log.Info().Str("host", s.sp.Host).Int("port", int(s.sp.Port)).Msg("server started")
+	log.Info().Msg("started")
 	return nil
 }
 
