@@ -75,23 +75,55 @@ components:
           type: string
     State:
       properties:
-        total_fault:
+        totalFaults:
           type: integer
-        total_alarm:
+        totalAlarms:
           type: integer
+        wirelessConnection:
+          type: boolean
+        wifiConnection:
+          type: boolean
+        ethernet1Connection:
+          type: boolean
+        ethernet2Connection:
+          type: boolean
+        cloudConnection:
+          type: boolean
     Device:
       properties:
-        dev_id:
+        id:
           type: integer
-        dev_type:
+        code:
+          type: integer
+        type:
+          type: integer
+        protocol:
+          type: integer
+        serialNumber:
+          type: string
+        name:
+          type: string
+        model:
+          type: string
+        special:
+          type: string
+        invType:
+          type: integer
+        physicalAddress:
+          type: integer
+        logicalAddress:
+          type: integer
+        linkStatus:
+          type: integer
+        initStatus:
           type: integer
     Datapoint:
       properties:
-        data_name:
+        i18nCode:
           type: string
-        Name:
+        name:
           type: string
-        data_value:
+        value:
           type: string
-        data_unit:
+        unit:
           type: string
