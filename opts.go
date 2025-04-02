@@ -16,7 +16,7 @@ func defaultOptions() *options {
 	return &options{logger: log.Logger}
 }
 
-func resolveOptions(optFuncs []optFunc) *options {
+func resolveOptions(optFuncs ...optFunc) *options {
 	opts := defaultOptions()
 	for _, fn := range optFuncs {
 		fn(opts)

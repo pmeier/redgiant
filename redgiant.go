@@ -18,7 +18,7 @@ type Redgiant struct {
 }
 
 func NewRedgiant(sg *Sungrow, opts ...optFunc) *Redgiant {
-	o := resolveOptions(opts)
+	o := resolveOptions(append([]optFunc{WithLocalizer(NewSungrowLocalizer(sg.Host))}, opts...)...)
 	return &Redgiant{sg: sg, log: o.logger, localizer: o.localizer}
 }
 

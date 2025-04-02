@@ -29,11 +29,7 @@ func Start(p ServerParams) error {
 	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger().Level(l)
 
 	sg := redgiant.NewSungrow(p.SungrowHost, p.SungrowUsername, p.SungrowPassword, redgiant.WithLogger(logger))
-	rg := redgiant.NewRedgiant(
-		sg,
-		redgiant.WithLogger(logger),
-		redgiant.WithLocalizer(redgiant.NewSungrowLocalizer(p.SungrowHost)),
-	)
+	rg := redgiant.NewRedgiant(sg, redgiant.WithLogger(logger))
 
 	if err := rg.Connect(); err != nil {
 		return err
