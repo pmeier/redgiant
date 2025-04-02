@@ -166,10 +166,6 @@ func (rg *Redgiant) LiveData(deviceID int, services ...string) ([]Datapoint, err
 func (rg *Redgiant) LocalizedLiveData(deviceID int, lang Language) ([]LocalizedDatapoint, error) {
 	rg.log.Trace().Int("deviceID", deviceID).Stringer("lang", lang).Msg("Redgiant.LiveData()")
 
-	if rg.localizer == nil {
-		return nil, errors.New("no localizer available")
-	}
-
 	ld, err := rg.LiveData(deviceID)
 	if err != nil {
 		return nil, err
