@@ -24,8 +24,9 @@ type Datapoint struct {
 }
 
 type LocalizedDatapoint struct {
-	Datapoint
-	Name string
+	Name  string
+	Value string
+	Unit  string
 }
 
 type About struct {
@@ -45,6 +46,7 @@ type State struct {
 	CloudConnection     IntBool `json:"cloud_conn_sts,string"`
 }
 
+// FIXME: add available services to the device
 type Device struct {
 	ID              int    `json:"dev_id"`
 	Code            int    `json:"dev_code"`

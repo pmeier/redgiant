@@ -2,6 +2,7 @@ package redgiant
 
 import (
 	"bufio"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,24 +13,24 @@ import (
 type Language uint8
 
 const (
-	Chinese Language = iota
-	English
-	German
-	Dutch
-	Polish
+	ChineseLanguage Language = iota
+	EnglishLanguage
+	GermanLanguage
+	DutchLanguage
+	PolishLanguage
 )
 
 func (l Language) String() string {
 	switch l {
-	case Chinese:
+	case ChineseLanguage:
 		return "ch_CN"
-	case English:
+	case EnglishLanguage:
 		return "en_US"
-	case German:
+	case GermanLanguage:
 		return "de_DE"
-	case Dutch:
+	case DutchLanguage:
 		return "nl_NL"
-	case Polish:
+	case PolishLanguage:
 		return "pl_PL"
 	}
 	return strconv.Itoa(int(l))
@@ -54,7 +55,8 @@ func (l *SungrowLocalizer) getCodeMap(lang Language) (map[string]string, error) 
 		return cm, nil
 	}
 
-	r, err := http.Get(fmt.Sprintf("https://%s/i18n/%s.properties", l.host, lang))
+	c := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
+	r, err := c.Get(fmt.Sprintf("https://%s/i18n/%s.properties", l.host, lang))
 	if err != nil {
 		return nil, err
 	}
@@ -63,13 +65,14 @@ func (l *SungrowLocalizer) getCodeMap(lang Language) (map[string]string, error) 
 	s := bufio.NewScanner(r.Body)
 	cm = map[string]string{}
 	for s.Scan() {
-		parts := strings.Split(s.Text(), "=")
+		parts := strings.SplitN(s.Text(), "=", 2)
 		if len(parts) != 2 {
 			return nil, errors.New("unknown line format")
 		}
 		i18nCode, name := parts[0], parts[1]
 		cm[i18nCode] = name
 	}
+	l.lm[lang] = cm
 	return cm, nil
 }
 

@@ -3,6 +3,7 @@ package redgiant
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"time"
@@ -163,10 +164,10 @@ func (rg *Redgiant) LiveData(deviceID int, services ...string) ([]Datapoint, err
 	return datapoints, nil
 }
 
-func (rg *Redgiant) LocalizedLiveData(deviceID int, lang Language) ([]LocalizedDatapoint, error) {
+func (rg *Redgiant) LocalizedLiveData(deviceID int, lang Language, services ...string) ([]LocalizedDatapoint, error) {
 	rg.log.Trace().Int("deviceID", deviceID).Stringer("lang", lang).Msg("Redgiant.LiveData()")
 
-	ld, err := rg.LiveData(deviceID)
+	ld, err := rg.LiveData(deviceID, services...)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +177,13 @@ func (rg *Redgiant) LocalizedLiveData(deviceID int, lang Language) ([]LocalizedD
 		if err != nil {
 			return nil, err
 		}
-		lld = append(lld, LocalizedDatapoint{Datapoint: d, Name: name})
+
+		value, err := rg.localizer.Localize(d.Value, lang)
+		if err != nil {
+			value = d.Value
+		}
+
+		lld = append(lld, LocalizedDatapoint{Name: name, Value: value, Unit: d.Unit})
 	}
 	return lld, nil
 }

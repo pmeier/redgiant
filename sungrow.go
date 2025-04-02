@@ -20,6 +20,14 @@ import (
 	"github.com/google/uuid"
 )
 
+type URL struct {
+	url.URL
+}
+
+func (u URL) MarshalZerologObject(e *zerolog.Event) {
+	e.Str("path", u.Path).Str("query", u.Query().Encode())
+}
+
 type Response struct {
 	Code    int             `json:"result_code"`
 	Message string          `json:"result_msg"`
@@ -159,13 +167,17 @@ func (s *Sungrow) Get(path string, params map[string]string, v any) error {
 	for k, v := range params {
 		q.Set(k, v)
 	}
+	u.RawQuery = q.Encode()
 
-	r, err := http.Get(u.String())
+	s.log.Trace().Str("url", u.String()).Str("query", u.Query().Encode()).Msg("request")
+
+	c := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}, Timeout: time.Second * 30}
+	r, err := c.Get(u.String())
 	if err != nil {
 		return err
 	}
-
 	defer r.Body.Close()
+
 	var resp Response
 	if err := json.NewDecoder(r.Body).Decode(&resp); err != nil {
 		return err
