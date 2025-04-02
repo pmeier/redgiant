@@ -125,7 +125,7 @@ var serviceMap = map[int][]string{
 	44: {"real"},
 }
 
-func (rg *Redgiant) LiveData(deviceID int, services ...string) ([]Datapoint, error) {
+func (rg *Redgiant) LiveData(deviceID int, lang Language, services ...string) ([]Datapoint, error) {
 	rg.log.Trace().Int("deviceID", deviceID).Strs("services", services).Msg("Redgiant.LiveData()")
 
 	device, err := rg.getDevice(deviceID)
@@ -157,32 +157,21 @@ func (rg *Redgiant) LiveData(deviceID int, services ...string) ([]Datapoint, err
 		if err := rg.sg.Send(service, map[string]any{"dev_id": strconv.Itoa(device.ID), "time123456": time.Now().Unix()}, &d); err != nil {
 			return nil, err
 		}
-		datapoints = append(datapoints, d.Datapoints...)
+		for _, dp := range d.Datapoints {
+			name, err := rg.localizer.Localize(dp.I18nCode, lang)
+			if err != nil {
+				return nil, err
+			}
+			dp.Name = name
+
+			value, err := rg.localizer.Localize(dp.Value, lang)
+			if err == nil {
+				dp.Value = value
+			}
+
+			datapoints = append(datapoints, dp)
+		}
 	}
 
 	return datapoints, nil
-}
-
-func (rg *Redgiant) LocalizedLiveData(deviceID int, lang Language, services ...string) ([]LocalizedDatapoint, error) {
-	rg.log.Trace().Int("deviceID", deviceID).Stringer("lang", lang).Msg("Redgiant.LiveData()")
-
-	ld, err := rg.LiveData(deviceID, services...)
-	if err != nil {
-		return nil, err
-	}
-	lld := make([]LocalizedDatapoint, 0, len(ld))
-	for _, d := range ld {
-		name, err := rg.localizer.Localize(d.I18nCode, lang)
-		if err != nil {
-			return nil, err
-		}
-
-		value, err := rg.localizer.Localize(d.Value, lang)
-		if err != nil {
-			value = d.Value
-		}
-
-		lld = append(lld, LocalizedDatapoint{Name: name, Value: value, Unit: d.Unit})
-	}
-	return lld, nil
 }

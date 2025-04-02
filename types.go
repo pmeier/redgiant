@@ -17,23 +17,11 @@ func (ib *IntBool) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type Datapoint struct {
-	I18nCode string `json:"data_name"`
-	Value    string `json:"data_value"`
-	Unit     string `json:"data_unit"`
-}
-
-type LocalizedDatapoint struct {
-	Name  string
-	Value string
-	Unit  string
-}
-
 type About struct {
-	SerialNumber    string
-	Version         string
-	SoftwareVersion string
-	BuildVersion    string
+	SerialNumber    string `json:"serialNumber"`
+	Version         string `json:"version"`
+	SoftwareVersion string `json:"softwareVersion"`
+	BuildVersion    string `json:"buildVersion"`
 }
 
 type State struct {
@@ -62,4 +50,11 @@ type Device struct {
 	LogicalAddress  int    `json:"logc_addr,string"`
 	LinkStatus      int    `json:"link_status"`
 	InitStatus      int    `json:"init_status"`
+}
+
+type Datapoint struct {
+	I18nCode string `json:"data_name"`
+	Name     string
+	Value    string `json:"data_value"`
+	Unit     string `json:"data_unit"`
 }
