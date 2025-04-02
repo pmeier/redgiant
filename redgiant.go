@@ -18,8 +18,8 @@ type Redgiant struct {
 }
 
 func NewRedgiant(sg *Sungrow, opts ...optFunc) *Redgiant {
-	o := resolveOptions(opts)
-	return &Redgiant{sg: sg, log: o.logger}
+	o := resolveOptions(append([]optFunc{WithLocalizer(NewSungrowLocalizer(sg.Host))}, opts...)...)
+	return &Redgiant{sg: sg, log: o.logger, localizer: o.localizer}
 }
 
 func (rg *Redgiant) Connect() error {

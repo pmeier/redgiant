@@ -46,7 +46,7 @@ type Sungrow struct {
 }
 
 func NewSungrow(host string, username string, password string, opts ...optFunc) *Sungrow {
-	o := resolveOptions(opts)
+	o := resolveOptions(opts...)
 	return &Sungrow{Host: host, Username: username, Password: password, log: o.logger}
 }
 
