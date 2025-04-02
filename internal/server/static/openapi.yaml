@@ -1,0 +1,97 @@
+openapi: "3.1.1"
+info:
+  title: redgiant
+  version: "0.0.1"
+
+paths:
+  /api/about:
+    get:
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/About"
+  /api/state:
+    get:
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/State"
+  /api/devices:
+    get:
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Device"
+  /api/live-data/{deviceID}:
+    get:
+      parameters:
+        - in: path
+          name: deviceID
+          schema:
+            type: integer
+          required: true
+        - in: query
+          name: lang
+          schema:
+            type: string
+            enum:
+              - ch_CN
+              - en_US
+              - de_DE
+              - nl_NL
+              - pl_PL
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Datapoint"
+
+components:
+  schemas:
+    About:
+      properties:
+        serialNumber:
+          type: string
+        version:
+          type: string
+        softwareVersion:
+          type: string
+        buildVersion:
+          type: string
+    State:
+      properties:
+        total_fault:
+          type: integer
+        total_alarm:
+          type: integer
+    Device:
+      properties:
+        dev_id:
+          type: integer
+        dev_type:
+          type: integer
+    Datapoint:
+      properties:
+        data_name:
+          type: string
+        Name:
+          type: string
+        data_value:
+          type: string
+        data_unit:
+          type: string

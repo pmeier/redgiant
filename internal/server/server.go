@@ -1,6 +1,7 @@
 package server
 
 import (
+	"embed"
 	"fmt"
 	"time"
 
@@ -10,6 +11,9 @@ import (
 	"github.com/pmeier/redgiant/internal/health"
 	"github.com/rs/zerolog"
 )
+
+//go:embed static/*
+var staticFS embed.FS
 
 type routeFunc = func(*redgiant.Redgiant, zerolog.Logger) (string, string, echo.HandlerFunc)
 
@@ -33,6 +37,8 @@ func newServer(sp ServerParams, rg *redgiant.Redgiant, logger zerolog.Logger) *S
 		method, path, handler := routeFunc(rg, logger)
 		e.Add(method, path, handler)
 	}
+
+	e.StaticFS("/", echo.MustSubFS(staticFS, "static"))
 
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
 		LogRemoteIP: true,

@@ -47,13 +47,7 @@ func liveData(rg *redgiant.Redgiant, log zerolog.Logger) (string, string, echo.H
 			services = strings.Split(p.Services, ",")
 		}
 
-		var d any
-		var err error
-		if p.Language == "" {
-			d, err = rg.LiveData(p.DeviceID, services...)
-		} else {
-			d, err = rg.LocalizedLiveData(p.DeviceID, redgiant.GermanLanguage, services...)
-		}
+		d, err := rg.LiveData(p.DeviceID, redgiant.GermanLanguage, services...)
 		if err != nil {
 			return err
 		}
