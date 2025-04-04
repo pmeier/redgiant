@@ -34,24 +34,24 @@ func (rg *Redgiant) Close() {
 }
 
 func (rg *Redgiant) About() (About, error) {
-	type data struct {
-		RawDatapoints []RealMeasurement `json:"list"`
+	type Data struct {
+		Measurements []RealMeasurement `json:"list"`
 	}
-	var d data
+	var d Data
 	if err := rg.sg.Get("/about/list", nil, &d); err != nil {
 		return About{}, err
 	}
 
-	dps := map[string]string{}
-	for _, dp := range d.RawDatapoints {
-		dps[dp.I18NCode] = dp.Value
+	ms := map[string]string{}
+	for _, m := range d.Measurements {
+		ms[m.I18NCode] = m.Value
 	}
 
 	return About{
-		SerialNumber:    dps["I18N_COMMON_DEVICE_SN"],
-		Version:         dps["I18N_COMMON_VERSION"],
-		SoftwareVersion: dps["I18N_COMMON_APPLI_SOFT_VERSION"],
-		BuildVersion:    dps["I18N_COMMON_BUILD_SOFT_VERSION"],
+		SerialNumber:    ms["I18N_COMMON_DEVICE_SN"],
+		Version:         ms["I18N_COMMON_VERSION"],
+		SoftwareVersion: ms["I18N_COMMON_APPLI_SOFT_VERSION"],
+		BuildVersion:    ms["I18N_COMMON_BUILD_SOFT_VERSION"],
 	}, nil
 }
 

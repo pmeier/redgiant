@@ -61,20 +61,6 @@ func (s *State) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// add Service RealService DirectService
-// add services to Device
-
-// type Service uint8
-
-// const (
-// 	ChineseLanguage Language = iota
-// 	EnglishLanguage
-// 	GermanLanguage
-// 	DutchLanguage
-// 	PolishLanguage
-// )
-
-// FIXME: add available services to the device
 type Device struct {
 	ID              int    `json:"id"`
 	Code            int    `json:"code"`
