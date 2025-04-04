@@ -6,14 +6,18 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/pmeier/redgiant/internal/utils"
 )
 
 type Language uint8
 
 const (
-	ChineseLanguage Language = iota
+	NoLanguage Language = iota
+	ChineseLanguage
 	EnglishLanguage
 	GermanLanguage
 	DutchLanguage
@@ -22,6 +26,8 @@ const (
 
 func (l Language) String() string {
 	switch l {
+	case NoLanguage:
+		return ""
 	case ChineseLanguage:
 		return "ch_CN"
 	case EnglishLanguage:
@@ -36,6 +42,31 @@ func (l Language) String() string {
 	return strconv.Itoa(int(l))
 }
 
+func ParseLanguage(langStr string) (Language, error) {
+	for _, lang := range []Language{
+		NoLanguage,
+		ChineseLanguage,
+		EnglishLanguage,
+		GermanLanguage,
+		DutchLanguage,
+		PolishLanguage,
+	} {
+		if strings.EqualFold(langStr, lang.String()) {
+			return lang, nil
+		}
+	}
+	return NoLanguage, errors.New("unknown language")
+}
+
+func (l *Language) UnmarshalParam(param string) error {
+	lang, err := ParseLanguage(param)
+	if err != nil {
+		return err
+	}
+	*l = lang
+	return nil
+}
+
 type Localizer interface {
 	Localize(i18nCode string, lang Language) (string, error)
 }
@@ -43,10 +74,15 @@ type Localizer interface {
 type SungrowLocalizer struct {
 	host string
 	lm   map[Language]map[string]string
+	re   *regexp.Regexp
 }
 
 func NewSungrowLocalizer(host string) *SungrowLocalizer {
-	return &SungrowLocalizer{host: host, lm: map[Language]map[string]string{}}
+	return &SungrowLocalizer{
+		host: host,
+		lm:   map[Language]map[string]string{},
+		re:   regexp.MustCompile(`{\d+}`),
+	}
 }
 
 func (l *SungrowLocalizer) getCodeMap(lang Language) (map[string]string, error) {
@@ -77,15 +113,30 @@ func (l *SungrowLocalizer) getCodeMap(lang Language) (map[string]string, error) 
 }
 
 func (l *SungrowLocalizer) Localize(i18nCode string, lang Language) (string, error) {
+	if lang == NoLanguage {
+		return i18nCode, nil
+	}
+
 	cm, err := l.getCodeMap(lang)
 	if err != nil {
 		return "", err
 	}
 
-	name, ok := cm[i18nCode]
+	// TODO: this likely needs to be adapted
+	parts := strings.Split(i18nCode, "%@")
+	i18nCode, args := parts[0], parts[1:]
+
+	v, ok := cm[i18nCode]
 	if !ok {
 		return "", errors.New("unknown i18n code")
 	}
 
-	return name, nil
+	if len(args) > 0 {
+		v = l.re.ReplaceAllStringFunc(v, func(a string) string {
+			// FIXME use proper group replace instead of indexing
+			return args[utils.Must(strconv.Atoi(a[1:len(a)-1]))]
+		})
+	}
+
+	return v, nil
 }

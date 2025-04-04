@@ -5,9 +5,9 @@ import (
 	"fmt"
 )
 
-type IntBool bool
+type intBool bool
 
-func (ib *IntBool) UnmarshalJSON(data []byte) error {
+func (ib *intBool) UnmarshalJSON(data []byte) error {
 	s := string(data)
 	switch s {
 	case "0":
@@ -41,11 +41,11 @@ func (s *State) UnmarshalJSON(data []byte) error {
 	type sungrowState struct {
 		TotalFaults         int     `json:"total_fault,string"`
 		TotalAlarms         int     `json:"total_alarm,string"`
-		WirelessConnection  IntBool `json:"wireless_conn_sts,string"`
-		WifiConnection      IntBool `json:"wifi_conn_sts,string"`
-		Ethernet1Connection IntBool `json:"eth_conn_sts,string"`
-		Ethernet2Connection IntBool `json:"eth2_conn_sts,string"`
-		CloudConnection     IntBool `json:"cloud_conn_sts,string"`
+		WirelessConnection  intBool `json:"wireless_conn_sts,string"`
+		WifiConnection      intBool `json:"wifi_conn_sts,string"`
+		Ethernet1Connection intBool `json:"eth_conn_sts,string"`
+		Ethernet2Connection intBool `json:"eth2_conn_sts,string"`
+		CloudConnection     intBool `json:"cloud_conn_sts,string"`
 	}
 	var ss sungrowState
 	if err := json.Unmarshal(data, &ss); err != nil {
@@ -60,6 +60,19 @@ func (s *State) UnmarshalJSON(data []byte) error {
 	s.CloudConnection = bool(ss.CloudConnection)
 	return nil
 }
+
+// add Service RealService DirectService
+// add services to Device
+
+// type Service uint8
+
+// const (
+// 	ChineseLanguage Language = iota
+// 	EnglishLanguage
+// 	GermanLanguage
+// 	DutchLanguage
+// 	PolishLanguage
+// )
 
 // FIXME: add available services to the device
 type Device struct {
@@ -100,42 +113,58 @@ func (d *Device) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &sd); err != nil {
 		return err
 	}
-	d.ID = sd.ID
-	d.Code = sd.Code
-	d.Type = sd.Type
-	d.Protocol = sd.Protocol
-	d.SerialNumber = sd.SerialNumber
-	d.Name = sd.Name
-	d.Model = sd.Model
-	d.Special = sd.Special
-	d.InvType = sd.InvType
-	d.PortName = sd.PortName
-	d.PhysicalAddress = sd.PhysicalAddress
-	d.LogicalAddress = sd.LogicalAddress
-	d.LinkStatus = sd.LinkStatus
-	d.InitStatus = sd.InitStatus
+	*d = Device(sd)
 	return nil
 }
 
-type Datapoint struct {
-	I18nCode string `json:"i18nCode"`
+type RealMeasurement struct {
+	I18NCode string `json:"i18nCode"`
 	Name     string `json:"name"`
 	Value    string `json:"value"`
 	Unit     string `json:"unit"`
 }
 
-func (d *Datapoint) UnmarshalJSON(data []byte) error {
-	type sungrowDatapoint struct {
+func (rm *RealMeasurement) UnmarshalJSON(data []byte) error {
+	type sungrowRealMeasurement struct {
 		I18nCode string `json:"data_name"`
 		Value    string `json:"data_value"`
 		Unit     string `json:"data_unit"`
 	}
-	var sd sungrowDatapoint
-	if err := json.Unmarshal(data, &sd); err != nil {
+	var srm sungrowRealMeasurement
+	if err := json.Unmarshal(data, &srm); err != nil {
 		return err
 	}
-	d.I18nCode = sd.I18nCode
-	d.Value = sd.Value
-	d.Unit = sd.Unit
+	rm.I18NCode = srm.I18nCode
+	rm.Value = srm.Value
+	rm.Unit = srm.Unit
+	return nil
+}
+
+type DirectMeasurement struct {
+	I18NCode    string  `json:"i18nCode"`
+	Name        string  `json:"name"`
+	Voltage     float32 `json:"voltage"`
+	VoltageUnit string  `json:"voltageUnit"`
+	Current     float32 `json:"current"`
+	CurrentUnit string  `json:"currentUnit"`
+}
+
+func (dm *DirectMeasurement) UnmarshalJSON(data []byte) error {
+	type sungrowDirectMeasurement struct {
+		I18NCode    string  `json:"name"`
+		Voltage     float32 `json:"voltage,string"`
+		VoltageUnit string  `json:"voltage_unit"`
+		Current     float32 `json:"current,string"`
+		CurrentUnit string  `json:"current_unit"`
+	}
+	var sdm sungrowDirectMeasurement
+	if err := json.Unmarshal(data, &sdm); err != nil {
+		return err
+	}
+	dm.I18NCode = sdm.I18NCode
+	dm.Voltage = sdm.Voltage
+	dm.VoltageUnit = sdm.VoltageUnit
+	dm.Current = sdm.Current
+	dm.CurrentUnit = sdm.CurrentUnit
 	return nil
 }
