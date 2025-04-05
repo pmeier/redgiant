@@ -33,7 +33,7 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Device"
-  /api/live-data/{deviceID}:
+  /api/data/{deviceID}/real:
     get:
       parameters:
         - in: path
@@ -51,6 +51,14 @@ paths:
               - de_DE
               - nl_NL
               - pl_PL
+        - in: query
+          name: service
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
       responses:
         "200":
           description: Successful Response
@@ -59,7 +67,42 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Datapoint"
+                  $ref: "#/components/schemas/RealMeasurement"
+  /api/data/{deviceID}/direct:
+    get:
+      parameters:
+        - in: path
+          name: deviceID
+          schema:
+            type: integer
+          required: true
+        - in: query
+          name: lang
+          schema:
+            type: string
+            enum:
+              - ch_CN
+              - en_US
+              - de_DE
+              - nl_NL
+              - pl_PL
+        - in: query
+          name: service
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DirectMeasurement"
 
 components:
   schemas:
@@ -117,7 +160,7 @@ components:
           type: integer
         initStatus:
           type: integer
-    Datapoint:
+    RealMeasurement:
       properties:
         i18nCode:
           type: string
@@ -126,4 +169,18 @@ components:
         value:
           type: string
         unit:
+          type: string
+    DirectMeasurement:
+      properties:
+        i18nCode:
+          type: string
+        name:
+          type: string
+        voltage:
+          type: number
+        voltageUnit:
+          type: string
+        current:
+          type: number
+        currentUnit:
           type: string

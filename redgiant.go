@@ -2,19 +2,22 @@ package redgiant
 
 import (
 	"errors"
-	"fmt"
-	"slices"
 	"strconv"
 	"time"
 
 	"github.com/rs/zerolog"
 )
 
+type deviceInfo struct {
+	ID   int
+	Type int
+}
+
 type Redgiant struct {
-	sg        *Sungrow
-	log       zerolog.Logger
-	localizer Localizer
-	dm        map[int]Device
+	sg            *Sungrow
+	log           zerolog.Logger
+	localizer     Localizer
+	deviceInfoMap map[int]deviceInfo
 }
 
 func NewRedgiant(sg *Sungrow, opts ...optFunc) *Redgiant {
@@ -31,24 +34,24 @@ func (rg *Redgiant) Close() {
 }
 
 func (rg *Redgiant) About() (About, error) {
-	type data struct {
-		RawDatapoints []Datapoint `json:"list"`
+	type Data struct {
+		Measurements []RealMeasurement `json:"list"`
 	}
-	var d data
+	var d Data
 	if err := rg.sg.Get("/about/list", nil, &d); err != nil {
 		return About{}, err
 	}
 
-	dps := map[string]string{}
-	for _, dp := range d.RawDatapoints {
-		dps[dp.I18nCode] = dp.Value
+	ms := map[string]string{}
+	for _, m := range d.Measurements {
+		ms[m.I18NCode] = m.Value
 	}
 
 	return About{
-		SerialNumber:    dps["I18N_COMMON_DEVICE_SN"],
-		Version:         dps["I18N_COMMON_VERSION"],
-		SoftwareVersion: dps["I18N_COMMON_APPLI_SOFT_VERSION"],
-		BuildVersion:    dps["I18N_COMMON_BUILD_SOFT_VERSION"],
+		SerialNumber:    ms["I18N_COMMON_DEVICE_SN"],
+		Version:         ms["I18N_COMMON_VERSION"],
+		SoftwareVersion: ms["I18N_COMMON_APPLI_SOFT_VERSION"],
+		BuildVersion:    ms["I18N_COMMON_BUILD_SOFT_VERSION"],
 	}, nil
 }
 
@@ -60,118 +63,155 @@ func (rg *Redgiant) State() (State, error) {
 	return s, nil
 }
 
-func (rg *Redgiant) deviceMap() (map[int]Device, error) {
-	rg.log.Trace().Msg("Redgiant.deviceMap()")
-
-	if rg.dm == nil {
-		type deviceList struct {
-			Devices []Device `json:"list"`
-		}
-
-		var dl deviceList
-		err := rg.sg.Send("devicelist",
-			map[string]any{
-				"is_check_token": "0",
-				"type":           "0"},
-			&dl)
-		if err != nil {
-			return nil, err
-		}
-
-		dm := map[int]Device{}
-		for _, d := range dl.Devices {
-			dm[d.ID] = d
-		}
-		rg.dm = dm
-	}
-
-	return rg.dm, nil
-}
-
 func (rg *Redgiant) Devices() ([]Device, error) {
 	rg.log.Trace().Msg("Redgiant.Devices()")
 
-	dm, err := rg.deviceMap()
+	type Data struct {
+		Devices []Device `json:"list"`
+	}
+	var d Data
+	err := rg.sg.Send("devicelist",
+		map[string]any{
+			"is_check_token": "0",
+			"type":           "0"},
+		&d)
 	if err != nil {
 		return nil, err
 	}
 
-	ds := make([]Device, 0, len(dm))
-	for _, d := range dm {
-		ds = append(ds, d)
-	}
-
-	return ds, nil
+	return d.Devices, nil
 }
 
-func (rg *Redgiant) getDevice(deviceID int) (Device, error) {
-	dm, err := rg.deviceMap()
-	if err != nil {
-		return Device{}, err
+func (rg *Redgiant) getDeviceInfo(deviceID int) (deviceInfo, error) {
+	rg.log.Trace().Msg("Redgiant.getDeviceInfo()")
+
+	if rg.deviceInfoMap == nil {
+		devices, err := rg.Devices()
+		if err != nil {
+			return deviceInfo{}, err
+		}
+
+		deviceInfoMap := make(map[int]deviceInfo, len(devices))
+		for _, d := range devices {
+			deviceInfoMap[d.ID] = deviceInfo{ID: d.ID, Type: d.Type}
+		}
+		rg.deviceInfoMap = deviceInfoMap
 	}
 
-	d, ok := dm[deviceID]
+	i, ok := rg.deviceInfoMap[deviceID]
 	if !ok {
 		msg := "unknown device"
 		rg.log.Error().Int("deviceID", deviceID).Msg(msg)
-		return Device{}, errors.New(msg)
+		return deviceInfo{}, errors.New(msg)
 	}
 
-	return d, nil
+	return i, nil
 }
 
-var serviceMap = map[int][]string{
-	35: {"real", "real_battery", "direct"},
+var availableRealDataServices = map[int][]string{
+	35: {"real", "real_battery"},
 	44: {"real"},
 }
 
-func (rg *Redgiant) LiveData(deviceID int, lang Language, services ...string) ([]Datapoint, error) {
-	rg.log.Trace().Int("deviceID", deviceID).Strs("services", services).Msg("Redgiant.LiveData()")
+func (rg *Redgiant) RealData(deviceID int, lang Language, services ...string) ([]RealMeasurement, error) {
+	rg.log.Trace().Int("deviceID", deviceID).Stringer("lang", lang).Msg("Redgiant.RealData()")
 
-	device, err := rg.getDevice(deviceID)
+	info, err := rg.getDeviceInfo(deviceID)
 	if err != nil {
 		return nil, err
 	}
 
-	availableServices, ok := serviceMap[device.Type]
-	if !ok {
-		return nil, fmt.Errorf("unknown device type %d", device.Type)
-	}
-	if len(services) > 0 {
-		for _, service := range services {
-			if !slices.Contains(availableServices, service) {
-				return nil, fmt.Errorf("unknown service %s for device type %d", service, device.Type)
-			}
+	var strict bool
+	if len(services) == 0 {
+		var ok bool
+		services, ok = availableRealDataServices[info.Type]
+		if !ok {
+			return nil, errors.New("unknown device type")
 		}
+		strict = false
 	} else {
-		services = availableServices
+		strict = true
 	}
 
-	datapoints := []Datapoint{}
-	type data struct {
-		Datapoints []Datapoint `json:"list"`
+	type Data struct {
+		Measurements []RealMeasurement `json:"list"`
 	}
-	var d data
-
+	var d Data
+	ms := []RealMeasurement{}
 	for _, service := range services {
-		if err := rg.sg.Send(service, map[string]any{"dev_id": strconv.Itoa(device.ID), "time123456": time.Now().Unix()}, &d); err != nil {
-			return nil, err
-		}
-		for _, dp := range d.Datapoints {
-			name, err := rg.localizer.Localize(dp.I18nCode, lang)
-			if err != nil {
+		if err := rg.sg.Send(service, map[string]any{"dev_id": strconv.Itoa(info.ID), "time123456": time.Now().Unix()}, &d); err != nil {
+			if strict {
 				return nil, err
+			} else {
+				continue
 			}
-			dp.Name = name
 
-			value, err := rg.localizer.Localize(dp.Value, lang)
+		}
+		for _, m := range d.Measurements {
+			if name, err := rg.localizer.Localize(m.I18NCode, lang); err == nil {
+				m.Name = name
+			} else {
+				m.Name = m.I18NCode
+			}
+
+			value, err := rg.localizer.Localize(m.Value, lang)
 			if err == nil {
-				dp.Value = value
+				m.Value = value
 			}
 
-			datapoints = append(datapoints, dp)
+			ms = append(ms, m)
 		}
 	}
 
-	return datapoints, nil
+	return ms, nil
+}
+
+var availableDirectDataServices = map[int][]string{
+	35: {"direct"},
+}
+
+func (rg *Redgiant) DirectData(deviceID int, lang Language, services ...string) ([]DirectMeasurement, error) {
+	rg.log.Trace().Int("deviceID", deviceID).Stringer("lang", lang).Msg("Redgiant.DirectData()")
+
+	info, err := rg.getDeviceInfo(deviceID)
+	if err != nil {
+		return nil, err
+	}
+
+	var strict bool
+	if len(services) == 0 {
+		var ok bool
+		services, ok = availableDirectDataServices[info.Type]
+		if !ok {
+			return nil, errors.New("unknown device type")
+		}
+		strict = false
+	} else {
+		strict = true
+	}
+
+	type Data struct {
+		Measurements []DirectMeasurement `json:"list"`
+	}
+	var d Data
+	ms := []DirectMeasurement{}
+	for _, service := range services {
+		if err := rg.sg.Send(service, map[string]any{"dev_id": strconv.Itoa(info.ID), "time123456": time.Now().Unix()}, &d); err != nil {
+			if strict {
+				return nil, err
+			} else {
+				continue
+			}
+		}
+		for _, m := range d.Measurements {
+			name, err := rg.localizer.Localize(m.I18NCode, lang)
+			if err == nil {
+				m.Name = name
+			}
+
+			ms = append(ms, m)
+		}
+	}
+
+	return ms, nil
 }

@@ -2,56 +2,76 @@ package server
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/pmeier/redgiant"
 	"github.com/rs/zerolog"
 )
 
-func redgiantWrapperRouteFunc[T any](path string, dataFunc func(*redgiant.Redgiant) (T, error)) routeFunc {
+func getRouteFunc[P any, O any](path string, bindFunc func(echo.Context) (P, error), outputFunc func(*redgiant.Redgiant, P) (O, error)) routeFunc {
 	return func(rg *redgiant.Redgiant, log zerolog.Logger) (string, string, echo.HandlerFunc) {
 		return http.MethodGet, path, func(c echo.Context) error {
-			d, err := dataFunc(rg)
+			p, err := bindFunc(c)
 			if err != nil {
-
 				return err
 			}
-			return c.JSON(http.StatusOK, d)
+
+			o, err := outputFunc(rg, p)
+			if err != nil {
+				return err
+			}
+			return c.JSON(http.StatusOK, o)
 		}
 	}
+}
+
+func noInputRouteFunc[T any](path string, noInputFunc func(*redgiant.Redgiant) (T, error)) routeFunc {
+	type Params struct{}
+
+	bindFunc := func(c echo.Context) (Params, error) {
+		var p Params
+		if err := c.Bind(&p); err != nil {
+			return Params{}, err
+		}
+		return p, nil
+	}
+
+	outputFunc := func(rg *redgiant.Redgiant, p Params) (T, error) {
+		return noInputFunc(rg)
+	}
+
+	return getRouteFunc(path, bindFunc, outputFunc)
+}
+
+func dataRouteFunc[T any](path string, dataFunc func(*redgiant.Redgiant, int, redgiant.Language, ...string) (T, error)) routeFunc {
+	type Params struct {
+		DeviceID int               `param:"deviceID"`
+		Language redgiant.Language `query:"lang"`
+		Services []string          `query:"service"`
+	}
+
+	bindFunc := func(c echo.Context) (Params, error) {
+		var p Params
+		if err := c.Bind(&p); err != nil {
+			return Params{}, err
+		}
+		return p, nil
+	}
+
+	outputFunc := func(rg *redgiant.Redgiant, p Params) (T, error) {
+		return dataFunc(rg, p.DeviceID, p.Language, p.Services...)
+	}
+
+	return getRouteFunc(path, bindFunc, outputFunc)
+
 }
 
 func apiRouteFuncs() []routeFunc {
 	return []routeFunc{
-		redgiantWrapperRouteFunc("/about", (*redgiant.Redgiant).About),
-		redgiantWrapperRouteFunc("/state", (*redgiant.Redgiant).State),
-		redgiantWrapperRouteFunc("/devices", (*redgiant.Redgiant).Devices),
-		liveData,
-	}
-}
-
-func liveData(rg *redgiant.Redgiant, log zerolog.Logger) (string, string, echo.HandlerFunc) {
-	return http.MethodGet, "/live-data/:deviceID", func(c echo.Context) error {
-		type Params struct {
-			DeviceID int    `param:"deviceID"`
-			Services string `query:"services"`
-			Language string `query:"lang"`
-		}
-		var p Params
-		if err := c.Bind(&p); err != nil {
-			return err
-		}
-		services := []string{}
-		if p.Services != "" {
-			services = strings.Split(p.Services, ",")
-		}
-
-		d, err := rg.LiveData(p.DeviceID, redgiant.GermanLanguage, services...)
-		if err != nil {
-			return err
-		}
-
-		return c.JSON(http.StatusOK, d)
+		noInputRouteFunc("/about", (*redgiant.Redgiant).About),
+		noInputRouteFunc("/state", (*redgiant.Redgiant).State),
+		noInputRouteFunc("/devices", (*redgiant.Redgiant).Devices),
+		dataRouteFunc("/data/:deviceID/real", (*redgiant.Redgiant).RealData),
+		dataRouteFunc("/data/:deviceID/direct", (*redgiant.Redgiant).DirectData),
 	}
 }
