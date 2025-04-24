@@ -45,6 +45,16 @@ func (hc *HTTPClient) About() (redgiant.About, error) {
 	return a, hc.getAPI("/about", nil, &a)
 }
 
+func (hc *HTTPClient) State() (redgiant.State, error) {
+	var s redgiant.State
+	return s, hc.getAPI("/state", nil, &s)
+}
+
+func (hc *HTTPClient) Devices() ([]redgiant.Device, error) {
+	var ds []redgiant.Device
+	return ds, hc.getAPI("/devices", nil, &ds)
+}
+
 func dataEndpointQuery(dataType string, deviceID int, lang Language, services ...string) (string, url.Values) {
 	e := fmt.Sprintf("/data/%d/%s", deviceID, dataType)
 	q := url.Values{}
