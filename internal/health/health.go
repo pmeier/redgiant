@@ -5,15 +5,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"time"
 
 	"github.com/labstack/echo/v4"
 )
 
 type HealthParams struct {
-	RedgiantHost string
-	RedgiantPort uint
+	Host string
+	Port uint
 }
 
 func HealthRouteFunc() (string, string, echo.HandlerFunc) {
@@ -49,10 +48,10 @@ func WaitForHealthy(host string, port uint, d time.Duration) error {
 	}
 }
 
-func Start(p HealthParams) {
-	var c int
-	if !IsHealthy(p.RedgiantHost, p.RedgiantPort) {
-		c = 1
+func Start(p HealthParams) error {
+	if IsHealthy(p.Host, p.Port) {
+		return nil
+	} else {
+		return errors.New("server not healthy")
 	}
-	os.Exit(c)
 }
