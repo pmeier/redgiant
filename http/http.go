@@ -16,8 +16,8 @@ type Client struct {
 	host string
 }
 
-func NewClient(host string) *Client {
-	return &Client{c: &http.Client{}, host: host}
+func NewClient(host string, port uint) *Client {
+	return &Client{c: &http.Client{}, host: fmt.Sprintf("%s:%d", host, port)}
 }
 
 func assertResponseSuccessful(r *http.Response) error {
