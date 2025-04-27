@@ -56,18 +56,18 @@ func (rg *Redgiant) About() (About, error) {
 }
 
 func (rg *Redgiant) State() (State, error) {
-	var s State
+	var s sungrowState
 	if err := rg.sg.Send("state", nil, &s); err != nil {
 		return State{}, err
 	}
-	return s, nil
+	return s.ToRedgiant(), nil
 }
 
 func (rg *Redgiant) Devices() ([]Device, error) {
 	rg.log.Trace().Msg("Redgiant.Devices()")
 
 	type Data struct {
-		Devices []Device `json:"list"`
+		Devices []sungrowDevice `json:"list"`
 	}
 	var d Data
 	err := rg.sg.Send("devicelist",
@@ -79,7 +79,12 @@ func (rg *Redgiant) Devices() ([]Device, error) {
 		return nil, err
 	}
 
-	return d.Devices, nil
+	ds := make([]Device, 0, len(d.Devices))
+	for _, sd := range d.Devices {
+		ds = append(ds, sd.ToRedgiant())
+	}
+
+	return ds, nil
 }
 
 func (rg *Redgiant) getDeviceInfo(deviceID int) (deviceInfo, error) {
@@ -134,7 +139,7 @@ func (rg *Redgiant) RealData(deviceID int, lang Language, services ...string) ([
 	}
 
 	type Data struct {
-		Measurements []RealMeasurement `json:"list"`
+		Measurements []sungrowRealMeasurement `json:"list"`
 	}
 	var d Data
 	ms := []RealMeasurement{}
@@ -147,7 +152,8 @@ func (rg *Redgiant) RealData(deviceID int, lang Language, services ...string) ([
 			}
 
 		}
-		for _, m := range d.Measurements {
+		for _, sm := range d.Measurements {
+			m := sm.ToRedgiant()
 			if name, err := rg.localizer.Localize(m.I18NCode, lang); err == nil {
 				m.Name = name
 			} else {
@@ -191,7 +197,7 @@ func (rg *Redgiant) DirectData(deviceID int, lang Language, services ...string) 
 	}
 
 	type Data struct {
-		Measurements []DirectMeasurement `json:"list"`
+		Measurements []sungrowDirectMeasurement `json:"list"`
 	}
 	var d Data
 	ms := []DirectMeasurement{}
@@ -203,7 +209,8 @@ func (rg *Redgiant) DirectData(deviceID int, lang Language, services ...string) 
 				continue
 			}
 		}
-		for _, m := range d.Measurements {
+		for _, sm := range d.Measurements {
+			m := sm.ToRedgiant()
 			name, err := rg.localizer.Localize(m.I18NCode, lang)
 			if err == nil {
 				m.Name = name

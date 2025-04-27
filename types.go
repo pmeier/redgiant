@@ -1,7 +1,6 @@
 package redgiant
 
 import (
-	"encoding/json"
 	"fmt"
 )
 
@@ -37,28 +36,26 @@ type State struct {
 	CloudConnection     bool `json:"cloudConnection"`
 }
 
-func (s *State) UnmarshalJSON(data []byte) error {
-	type sungrowState struct {
-		TotalFaults         int     `json:"total_fault,string"`
-		TotalAlarms         int     `json:"total_alarm,string"`
-		WirelessConnection  intBool `json:"wireless_conn_sts,string"`
-		WifiConnection      intBool `json:"wifi_conn_sts,string"`
-		Ethernet1Connection intBool `json:"eth_conn_sts,string"`
-		Ethernet2Connection intBool `json:"eth2_conn_sts,string"`
-		CloudConnection     intBool `json:"cloud_conn_sts,string"`
+type sungrowState struct {
+	TotalFault      int     `json:"total_fault,string"`
+	TotalAlarm      int     `json:"total_alarm,string"`
+	WirelessConnSts intBool `json:"wireless_conn_sts,string"`
+	WifiConnSts     intBool `json:"wifi_conn_sts,string"`
+	EthConnSts      intBool `json:"eth_conn_sts,string"`
+	Eth2ConnSts     intBool `json:"eth2_conn_sts,string"`
+	CloudConnSts    intBool `json:"cloud_conn_sts,string"`
+}
+
+func (ss *sungrowState) ToRedgiant() State {
+	return State{
+		TotalFaults:         ss.TotalFault,
+		TotalAlarms:         ss.TotalAlarm,
+		WirelessConnection:  bool(ss.WirelessConnSts),
+		WifiConnection:      bool(ss.WifiConnSts),
+		Ethernet1Connection: bool(ss.EthConnSts),
+		Ethernet2Connection: bool(ss.Eth2ConnSts),
+		CloudConnection:     bool(ss.CloudConnSts),
 	}
-	var ss sungrowState
-	if err := json.Unmarshal(data, &ss); err != nil {
-		return err
-	}
-	s.TotalFaults = ss.TotalFaults
-	s.TotalAlarms = ss.TotalAlarms
-	s.WirelessConnection = bool(ss.WirelessConnection)
-	s.WifiConnection = bool(ss.WifiConnection)
-	s.Ethernet1Connection = bool(ss.Ethernet1Connection)
-	s.Ethernet2Connection = bool(ss.Ethernet2Connection)
-	s.CloudConnection = bool(ss.CloudConnection)
-	return nil
 }
 
 type Device struct {
@@ -78,29 +75,40 @@ type Device struct {
 	InitStatus      int    `json:"initStatus"`
 }
 
-func (d *Device) UnmarshalJSON(data []byte) error {
-	type sungrowDevice struct {
-		ID              int    `json:"dev_id"`
-		Code            int    `json:"dev_code"`
-		Type            int    `json:"dev_type"`
-		Protocol        int    `json:"dev_protocol"`
-		SerialNumber    string `json:"dev_sn"`
-		Name            string `json:"dev_name"`
-		Model           string `json:"dev_model"`
-		Special         string `json:"dev_special"`
-		InvType         int    `json:"inv_type"`
-		PortName        string `json:"port_name"`
-		PhysicalAddress int    `json:"phys_addr,string"`
-		LogicalAddress  int    `json:"logc_addr,string"`
-		LinkStatus      int    `json:"link_status"`
-		InitStatus      int    `json:"init_status"`
+type sungrowDevice struct {
+	DevID       int    `json:"dev_id"`
+	DevCode     int    `json:"dev_code"`
+	DevType     int    `json:"dev_type"`
+	DevProtocol int    `json:"dev_protocol"`
+	DevSN       string `json:"dev_sn"`
+	DevName     string `json:"dev_name"`
+	DevModel    string `json:"dev_model"`
+	DevSpecial  string `json:"dev_special"`
+	InvType     int    `json:"inv_type"`
+	PortName    string `json:"port_name"`
+	PhysAddress int    `json:"phys_addr,string"`
+	LogcAddress int    `json:"logc_addr,string"`
+	LinkStatus  int    `json:"link_status"`
+	InitStatus  int    `json:"init_status"`
+}
+
+func (sd *sungrowDevice) ToRedgiant() Device {
+	return Device{
+		ID:              sd.DevID,
+		Code:            sd.DevCode,
+		Type:            sd.DevType,
+		Protocol:        sd.DevProtocol,
+		SerialNumber:    sd.DevSN,
+		Name:            sd.DevName,
+		Model:           sd.DevModel,
+		Special:         sd.DevSpecial,
+		InvType:         sd.InvType,
+		PortName:        sd.PortName,
+		PhysicalAddress: sd.PhysAddress,
+		LogicalAddress:  sd.LogcAddress,
+		LinkStatus:      sd.LinkStatus,
+		InitStatus:      sd.InitStatus,
 	}
-	var sd sungrowDevice
-	if err := json.Unmarshal(data, &sd); err != nil {
-		return err
-	}
-	*d = Device(sd)
-	return nil
 }
 
 type RealMeasurement struct {
@@ -110,20 +118,19 @@ type RealMeasurement struct {
 	Unit     string `json:"unit"`
 }
 
-func (rm *RealMeasurement) UnmarshalJSON(data []byte) error {
-	type sungrowRealMeasurement struct {
-		I18nCode string `json:"data_name"`
-		Value    string `json:"data_value"`
-		Unit     string `json:"data_unit"`
+type sungrowRealMeasurement struct {
+	DataName  string `json:"data_name"`
+	DataValue string `json:"data_value"`
+	DataUnit  string `json:"data_unit"`
+}
+
+func (srm *sungrowRealMeasurement) ToRedgiant() RealMeasurement {
+	return RealMeasurement{
+		I18NCode: srm.DataName,
+		Name:     "",
+		Value:    srm.DataValue,
+		Unit:     srm.DataUnit,
 	}
-	var srm sungrowRealMeasurement
-	if err := json.Unmarshal(data, &srm); err != nil {
-		return err
-	}
-	rm.I18NCode = srm.I18nCode
-	rm.Value = srm.Value
-	rm.Unit = srm.Unit
-	return nil
 }
 
 type DirectMeasurement struct {
@@ -135,22 +142,21 @@ type DirectMeasurement struct {
 	CurrentUnit string  `json:"currentUnit"`
 }
 
-func (dm *DirectMeasurement) UnmarshalJSON(data []byte) error {
-	type sungrowDirectMeasurement struct {
-		I18NCode    string  `json:"name"`
-		Voltage     float32 `json:"voltage,string"`
-		VoltageUnit string  `json:"voltage_unit"`
-		Current     float32 `json:"current,string"`
-		CurrentUnit string  `json:"current_unit"`
+type sungrowDirectMeasurement struct {
+	Name        string  `json:"name"`
+	Voltage     float32 `json:"voltage,string"`
+	VoltageUnit string  `json:"voltage_unit"`
+	Current     float32 `json:"current,string"`
+	CurrentUnit string  `json:"current_unit"`
+}
+
+func (sdm *sungrowDirectMeasurement) ToRedgiant() DirectMeasurement {
+	return DirectMeasurement{
+		I18NCode:    sdm.Name,
+		Name:        "",
+		Voltage:     sdm.Voltage,
+		VoltageUnit: sdm.VoltageUnit,
+		Current:     sdm.Current,
+		CurrentUnit: sdm.CurrentUnit,
 	}
-	var sdm sungrowDirectMeasurement
-	if err := json.Unmarshal(data, &sdm); err != nil {
-		return err
-	}
-	dm.I18NCode = sdm.I18NCode
-	dm.Voltage = sdm.Voltage
-	dm.VoltageUnit = sdm.VoltageUnit
-	dm.Current = sdm.Current
-	dm.CurrentUnit = sdm.CurrentUnit
-	return nil
 }
