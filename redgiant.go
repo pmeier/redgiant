@@ -56,11 +56,11 @@ func (rg *Redgiant) About() (About, error) {
 }
 
 func (rg *Redgiant) State() (State, error) {
-	var s State
+	var s sungrowState
 	if err := rg.sg.Send("state", nil, &s); err != nil {
 		return State{}, err
 	}
-	return s, nil
+	return s.ToRedgiant(), nil
 }
 
 func (rg *Redgiant) Devices() ([]Device, error) {

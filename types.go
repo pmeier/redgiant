@@ -37,28 +37,26 @@ type State struct {
 	CloudConnection     bool `json:"cloudConnection"`
 }
 
-func (s *State) UnmarshalJSON(data []byte) error {
-	type sungrowState struct {
-		TotalFaults         int     `json:"total_fault,string"`
-		TotalAlarms         int     `json:"total_alarm,string"`
-		WirelessConnection  intBool `json:"wireless_conn_sts,string"`
-		WifiConnection      intBool `json:"wifi_conn_sts,string"`
-		Ethernet1Connection intBool `json:"eth_conn_sts,string"`
-		Ethernet2Connection intBool `json:"eth2_conn_sts,string"`
-		CloudConnection     intBool `json:"cloud_conn_sts,string"`
+type sungrowState struct {
+	TotalFault      int     `json:"total_fault,string"`
+	TotalAlarm      int     `json:"total_alarm,string"`
+	WirelessConnSts intBool `json:"wireless_conn_sts,string"`
+	WifiConnSts     intBool `json:"wifi_conn_sts,string"`
+	EthConnSts      intBool `json:"eth_conn_sts,string"`
+	Eth2ConnSts     intBool `json:"eth2_conn_sts,string"`
+	CloudConnSts    intBool `json:"cloud_conn_sts,string"`
+}
+
+func (ss *sungrowState) ToRedgiant() State {
+	return State{
+		TotalFaults:         ss.TotalFault,
+		TotalAlarms:         ss.TotalAlarm,
+		WirelessConnection:  bool(ss.WirelessConnSts),
+		WifiConnection:      bool(ss.WifiConnSts),
+		Ethernet1Connection: bool(ss.EthConnSts),
+		Ethernet2Connection: bool(ss.Eth2ConnSts),
+		CloudConnection:     bool(ss.CloudConnSts),
 	}
-	var ss sungrowState
-	if err := json.Unmarshal(data, &ss); err != nil {
-		return err
-	}
-	s.TotalFaults = ss.TotalFaults
-	s.TotalAlarms = ss.TotalAlarms
-	s.WirelessConnection = bool(ss.WirelessConnection)
-	s.WifiConnection = bool(ss.WifiConnection)
-	s.Ethernet1Connection = bool(ss.Ethernet1Connection)
-	s.Ethernet2Connection = bool(ss.Ethernet2Connection)
-	s.CloudConnection = bool(ss.CloudConnection)
-	return nil
 }
 
 type Device struct {
