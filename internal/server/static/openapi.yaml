@@ -4,8 +4,13 @@ info:
   version: "0.0.1"
 
 paths:
+  /health:
+    responses:
+      "200":
+        description: Successful Response
   /api/about:
     get:
+      tags: ["API"]
       responses:
         "200":
           description: Successful Response
@@ -15,6 +20,7 @@ paths:
                 $ref: "#/components/schemas/About"
   /api/state:
     get:
+      tags: ["API"]
       responses:
         "200":
           description: Successful Response
@@ -24,6 +30,7 @@ paths:
                 $ref: "#/components/schemas/State"
   /api/devices:
     get:
+      tags: ["API"]
       responses:
         "200":
           description: Successful Response
@@ -35,6 +42,7 @@ paths:
                   $ref: "#/components/schemas/Device"
   /api/data/{deviceID}/real:
     get:
+      tags: ["API"]
       parameters:
         - in: path
           name: deviceID
@@ -70,6 +78,7 @@ paths:
                   $ref: "#/components/schemas/RealMeasurement"
   /api/data/{deviceID}/direct:
     get:
+      tags: ["API"]
       parameters:
         - in: path
           name: deviceID
