@@ -33,3 +33,22 @@ docker run -e SUNGROW_HOST=$SUNGROW_HOST -p 8000:80 ghcr.io/pmeier/redgiant:late
 ```
 
 [Sungrow]: https://en.sungrowpower.com/
+
+# On what setup was this tested?
+
+```shell
+$ export REDGIANT_HOST=...
+$ curl --silent http://${REDGIANT_HOST}/api/about | jq
+
+$ curl --silent http://${REDGIANT_HOST}/api/devices | jq 'map({model: .model, type: .type})'
+[
+  {
+    "model": "SH10RT",
+    "type": 35
+  },
+  {
+    "model": "SBR096",
+    "type": 44
+  }
+]
+```
