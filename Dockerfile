@@ -13,7 +13,6 @@ FROM gcr.io/distroless/static-debian12
 COPY --from=build /bin/redgiant /
 
 ENV REDGIANT_HOST=0.0.0.0
-ENV REDGIANT_PORT=80
 
 ENTRYPOINT ["/redgiant"]
 CMD ["serve"]

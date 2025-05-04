@@ -8,12 +8,8 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/pmeier/redgiant/internal/config"
 )
-
-type HealthParams struct {
-	Host string
-	Port uint
-}
 
 func HealthRouteFunc() (string, string, echo.HandlerFunc) {
 	return http.MethodGet, "/health", func(c echo.Context) error {
@@ -22,9 +18,11 @@ func HealthRouteFunc() (string, string, echo.HandlerFunc) {
 }
 
 func IsHealthy(host string, port uint) bool {
-	r, err := http.Get((&url.URL{Scheme: "http",
-		Host: fmt.Sprintf("%s:%d", host, port),
-		Path: "/health"}).String())
+	r, err := http.Get(
+		(&url.URL{
+			Scheme: "http",
+			Host:   fmt.Sprintf("%s:%d", host, port),
+			Path:   "/health"}).String())
 	if err == nil && r.StatusCode == http.StatusOK {
 		return true
 	} else {
@@ -48,8 +46,8 @@ func WaitForHealthy(host string, port uint, d time.Duration) error {
 	}
 }
 
-func Start(p HealthParams) error {
-	if IsHealthy(p.Host, p.Port) {
+func Run(c config.Config) error {
+	if IsHealthy(c.Host, c.Port) {
 		return nil
 	} else {
 		return errors.New("server not healthy")
