@@ -29,7 +29,7 @@ redgiant does *not* need elevated permissions so you can user either account.
 ## Docker
 
 ```shell
-docker run -e REDGIANT_SUNGROW_HOST=$SUNGROW_HOST -p 8000:80 ghcr.io/pmeier/redgiant:latest
+docker run -e REDGIANT_SUNGROW_HOST=$SUNGROW_HOST -p 8000:8000 ghcr.io/pmeier/redgiant:latest
 ```
 
 [Sungrow]: https://en.sungrowpower.com/
