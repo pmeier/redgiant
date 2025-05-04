@@ -9,8 +9,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -o /bin/redgiant ./main
 
-FROM gcr.io/distroless/static-debian12
-COPY --from=build /bin/redgiant /
+FROM gcr.io/distroless/static-debian12:nonroot
 
 ENV REDGIANT_HOST=0.0.0.0
 ENV REDGIANT_PORT=80
