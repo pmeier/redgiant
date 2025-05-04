@@ -1,22 +1,21 @@
-package server
+package serve
 
 import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
 	"github.com/pmeier/redgiant"
-	"github.com/rs/zerolog"
 )
 
 func getRouteFunc[P any, O any](path string, bindFunc func(echo.Context) (P, error), outputFunc func(*redgiant.Redgiant, P) (O, error)) routeFunc {
-	return func(rg *redgiant.Redgiant, log zerolog.Logger) (string, string, echo.HandlerFunc) {
+	return func(s *Server) (string, string, echo.HandlerFunc) {
 		return http.MethodGet, path, func(c echo.Context) error {
 			p, err := bindFunc(c)
 			if err != nil {
 				return err
 			}
 
-			o, err := outputFunc(rg, p)
+			o, err := outputFunc(s.rg, p)
 			if err != nil {
 				return err
 			}

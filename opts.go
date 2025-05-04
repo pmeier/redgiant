@@ -12,12 +12,10 @@ type options struct {
 
 type optFunc = func(*options)
 
-func defaultOptions() *options {
-	return &options{logger: log.Logger}
-}
-
 func resolveOptions(optFuncs ...optFunc) *options {
-	opts := defaultOptions()
+	opts := &options{
+		logger: log.Logger,
+	}
 	for _, fn := range optFuncs {
 		fn(opts)
 	}

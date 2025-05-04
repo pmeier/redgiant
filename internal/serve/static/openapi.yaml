@@ -5,9 +5,11 @@ info:
 
 paths:
   /health:
-    responses:
-      "200":
-        description: Successful Response
+    get:
+      responses:
+        "200":
+          description: Successful Response
+
   /api/about:
     get:
       tags: ["API"]

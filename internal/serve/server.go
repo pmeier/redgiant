@@ -1,4 +1,4 @@
-package server
+package serve
 
 import (
 	"embed"
@@ -12,35 +12,40 @@ import (
 	"github.com/rs/zerolog"
 )
 
-//go:embed static/*
-var staticFS embed.FS
-
-type routeFunc = func(*redgiant.Redgiant, zerolog.Logger) (string, string, echo.HandlerFunc)
-
 type Server struct {
 	*echo.Echo
-	sp  ServerParams
+	rg  *redgiant.Redgiant
 	log zerolog.Logger
 }
 
-func newServer(sp ServerParams, rg *redgiant.Redgiant, logger zerolog.Logger) *Server {
+type routeFunc = func(*Server) (string, string, echo.HandlerFunc)
+
+//go:embed static/*
+var staticFS embed.FS
+
+func newServer(rg *redgiant.Redgiant, logger zerolog.Logger) *Server {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
 	e.Debug = true
+
+	s := &Server{Echo: e, log: logger}
 
 	routeFuncs := []routeFunc{
 		wrapBasicRouteFunc(health.HealthRouteFunc),
 	}
 	routeFuncs = append(routeFuncs, withPrefix("/api", apiRouteFuncs()...)...)
 	for _, routeFunc := range routeFuncs {
-		method, path, handler := routeFunc(rg, logger)
+		method, path, handler := routeFunc(s)
 		e.Add(method, path, handler)
 	}
 
 	e.StaticFS("/", echo.MustSubFS(staticFS, "static"))
 
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		Skipper: func(c echo.Context) bool {
+			return c.Request().URL.Path == "/health" && logger.GetLevel() > zerolog.DebugLevel
+		},
 		LogRemoteIP: true,
 		LogURI:      true,
 		LogStatus:   true,
@@ -55,18 +60,18 @@ func newServer(sp ServerParams, rg *redgiant.Redgiant, logger zerolog.Logger) *S
 		},
 	}))
 
-	return &Server{Echo: e, sp: sp, log: logger}
+	return s
 }
 
-func (s *Server) Start(timeout time.Duration) error {
-	log := s.log.With().Str("host", s.sp.Host).Int("port", int(s.sp.Port)).Logger()
+func (s *Server) Start(host string, port uint, timeout time.Duration) error {
+	log := s.log.With().Str("host", host).Int("port", int(port)).Logger()
 	log.Info().Msg("starting")
 
 	go func() {
-		s.Echo.Start(fmt.Sprintf("%s:%d", s.sp.Host, s.sp.Port))
+		s.Echo.Start(fmt.Sprintf("%s:%d", host, port))
 	}()
 
-	if err := health.WaitForHealthy(s.sp.Host, s.sp.Port, timeout); err != nil {
+	if err := health.WaitForHealthy(host, port, timeout); err != nil {
 		return err
 	}
 
@@ -75,7 +80,7 @@ func (s *Server) Start(timeout time.Duration) error {
 }
 
 func wrapBasicRouteFunc(basicRouteFunc func() (string, string, echo.HandlerFunc)) routeFunc {
-	return func(*redgiant.Redgiant, zerolog.Logger) (string, string, echo.HandlerFunc) {
+	return func(*Server) (string, string, echo.HandlerFunc) {
 		return basicRouteFunc()
 	}
 }
@@ -83,8 +88,8 @@ func wrapBasicRouteFunc(basicRouteFunc func() (string, string, echo.HandlerFunc)
 func withPrefix(prefix string, rfs ...routeFunc) []routeFunc {
 	prfs := make([]routeFunc, 0, len(rfs))
 	for _, rf := range rfs {
-		prfs = append(prfs, func(rg *redgiant.Redgiant, log zerolog.Logger) (string, string, echo.HandlerFunc) {
-			method, route, handlerFunc := rf(rg, log)
+		prfs = append(prfs, func(s *Server) (string, string, echo.HandlerFunc) {
+			method, route, handlerFunc := rf(s)
 			return method, prefix + route, handlerFunc
 		})
 	}
