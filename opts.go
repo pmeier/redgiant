@@ -1,35 +1,41 @@
 package redgiant
 
 import (
+	"net/http"
+
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
-type options struct {
-	logger    zerolog.Logger
-	localizer Localizer
+type Options struct {
+	Logger     zerolog.Logger
+	Localizer  Localizer
+	HTTPClient *http.Client
 }
 
-type optFunc = func(*options)
+type OptFunc = func(*Options)
 
-func resolveOptions(optFuncs ...optFunc) *options {
-	opts := &options{
-		logger: log.Logger,
-	}
+func ResolveOptions(optFuncs ...OptFunc) *Options {
+	opts := &Options{}
 	for _, fn := range optFuncs {
 		fn(opts)
 	}
 	return opts
 }
 
-func WithLogger(l zerolog.Logger) optFunc {
-	return func(opts *options) {
-		opts.logger = l
+func WithLogger(l zerolog.Logger) OptFunc {
+	return func(opts *Options) {
+		opts.Logger = l
 	}
 }
 
-func WithLocalizer(l Localizer) optFunc {
-	return func(opts *options) {
-		opts.localizer = l
+func WithLocalizer(l Localizer) OptFunc {
+	return func(opts *Options) {
+		opts.Localizer = l
+	}
+}
+
+func WithHTTPClient(c *http.Client) OptFunc {
+	return func(opts *Options) {
+		opts.HTTPClient = c
 	}
 }

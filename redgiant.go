@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 type deviceInfo struct {
@@ -20,9 +21,12 @@ type Redgiant struct {
 	deviceInfoMap map[int]deviceInfo
 }
 
-func NewRedgiant(sg *Sungrow, opts ...optFunc) *Redgiant {
-	o := resolveOptions(append([]optFunc{WithLocalizer(NewSungrowLocalizer(sg.Host))}, opts...)...)
-	return &Redgiant{sg: sg, log: o.logger, localizer: o.localizer}
+func NewRedgiant(sg *Sungrow, opts ...OptFunc) *Redgiant {
+	o := ResolveOptions(append([]OptFunc{
+		WithLogger(log.Logger),
+		WithLocalizer(NewSungrowLocalizer(sg.Host)),
+	}, opts...)...)
+	return &Redgiant{sg: sg, log: o.Logger, localizer: o.Localizer}
 }
 
 func (rg *Redgiant) Connect() error {
@@ -119,7 +123,7 @@ var availableRealDataServices = map[int][]string{
 }
 
 func (rg *Redgiant) RealData(deviceID int, lang Language, services ...string) ([]RealMeasurement, error) {
-	rg.log.Trace().Int("deviceID", deviceID).Stringer("lang", lang).Msg("Redgiant.RealData()")
+	rg.log.Trace().Int("deviceID", deviceID).Stringer("lang", lang).Strs("services", services).Msg("Redgiant.RealData()")
 
 	info, err := rg.getDeviceInfo(deviceID)
 	if err != nil {
@@ -177,7 +181,7 @@ var availableDirectDataServices = map[int][]string{
 }
 
 func (rg *Redgiant) DirectData(deviceID int, lang Language, services ...string) ([]DirectMeasurement, error) {
-	rg.log.Trace().Int("deviceID", deviceID).Stringer("lang", lang).Msg("Redgiant.DirectData()")
+	rg.log.Trace().Int("deviceID", deviceID).Stringer("lang", lang).Strs("services", services).Msg("Redgiant.DirectData()")
 
 	info, err := rg.getDeviceInfo(deviceID)
 	if err != nil {
