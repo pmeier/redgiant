@@ -71,14 +71,14 @@ func (s *Sungrow) Connect() error {
 	}
 	log.Info().Msg("connecting")
 
-	var tcc *tls.Config
-	if _, ok := s.c.Transport.(*http.Transport); ok {
-		tcc = s.c.Transport.(*http.Transport).TLSClientConfig
-	} else {
-		// FIXME: this also needs to be configurable
-		tcc = &tls.Config{}
-	}
-	dialer := websocket.Dialer{TLSClientConfig: tcc}
+	// var tcc *tls.Config
+	// if _, ok := s.c.Transport.(*http.Transport); ok {
+	// 	tcc = s.c.Transport.(*http.Transport).TLSClientConfig
+	// } else {
+	// 	// FIXME: this also needs to be configurable
+	// 	tcc = &tls.Config{}
+	// }
+	dialer := websocket.Dialer{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	u := url.URL{Scheme: "wss", Host: s.Host, Path: "/ws/home/overview"}
 	ws, _, err := dialer.Dial(u.String(), nil)
 	if err != nil {
