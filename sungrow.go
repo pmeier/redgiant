@@ -279,14 +279,16 @@ func (s *Sungrow) send(service string, params map[string]any) (*Response, error)
 			continue
 		}
 
-		var sd struct {
-			Service string `json:"service"`
-		}
-		if err := json.Unmarshal(r.Data, &sd); err != nil {
-			return nil, err
-		} else if sd.Service != service {
-			s.log.Debug().Msg("response dropped due to service mismatch")
-			continue
+		if len(r.Data) > 0 {
+			var sd struct {
+				Service string `json:"service"`
+			}
+			if err := json.Unmarshal(r.Data, &sd); err != nil {
+				return nil, err
+			} else if sd.Service != service {
+				s.log.Debug().Msg("response dropped due to service mismatch")
+				continue
+			}
 		}
 
 		return &r, nil
