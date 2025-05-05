@@ -57,7 +57,7 @@ func NewSungrow(host string, username string, password string, opts ...OptFunc) 
 			Timeout: time.Second * 60,
 		}),
 	}, opts...)...)
-	return &Sungrow{Host: host, Username: username, Password: password, log: o.Logger}
+	return &Sungrow{Host: host, Username: username, Password: password, c: o.HTTPClient, log: o.Logger}
 }
 
 func (s *Sungrow) Connect() error {
@@ -71,14 +71,14 @@ func (s *Sungrow) Connect() error {
 	}
 	log.Info().Msg("connecting")
 
-	// var tcc *tls.Config
-	// if _, ok := s.c.Transport.(*http.Transport); ok {
-	// 	tcc = s.c.Transport.(*http.Transport).TLSClientConfig
-	// } else {
-	// 	// FIXME: this also needs to be configurable
-	// 	tcc = &tls.Config{}
-	// }
-	dialer := websocket.Dialer{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	var tcc *tls.Config
+	if _, ok := s.c.Transport.(*http.Transport); ok {
+		tcc = s.c.Transport.(*http.Transport).TLSClientConfig
+	} else {
+		// FIXME: this also needs to be configurable
+		tcc = &tls.Config{}
+	}
+	dialer := websocket.Dialer{TLSClientConfig: tcc}
 	u := url.URL{Scheme: "wss", Host: s.Host, Path: "/ws/home/overview"}
 	ws, _, err := dialer.Dial(u.String(), nil)
 	if err != nil {
@@ -178,7 +178,10 @@ func (s *Sungrow) Get(path string, params map[string]string, v any) error {
 	}
 	u.RawQuery = q.Encode()
 
-	s.log.Trace().Str("url", u.String()).Str("query", u.Query().Encode()).Msg("request")
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.log.Trace().Str("url", u.String()).Msg("request")
 
 	r, err := s.c.Get(u.String())
 	if err != nil {
@@ -190,6 +193,8 @@ func (s *Sungrow) Get(path string, params map[string]string, v any) error {
 	if err := json.NewDecoder(r.Body).Decode(&resp); err != nil {
 		return err
 	}
+
+	s.log.Trace().EmbedObject(resp).Msg("response")
 
 	return json.Unmarshal(resp.Data, v)
 }
