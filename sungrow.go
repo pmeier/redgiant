@@ -16,6 +16,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/google/uuid"
 )
@@ -38,6 +39,7 @@ type Sungrow struct {
 	Username        string
 	Password        string
 	log             zerolog.Logger
+	c               *http.Client
 	mu              sync.Mutex
 	ws              *websocket.Conn
 	connected       bool
@@ -45,9 +47,17 @@ type Sungrow struct {
 	cancelHeartbeat context.CancelFunc
 }
 
-func NewSungrow(host string, username string, password string, opts ...optFunc) *Sungrow {
-	o := resolveOptions(opts...)
-	return &Sungrow{Host: host, Username: username, Password: password, log: o.logger}
+func NewSungrow(host string, username string, password string, opts ...OptFunc) *Sungrow {
+	o := ResolveOptions(append([]OptFunc{
+		WithLogger(log.Logger),
+		WithHTTPClient(&http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+			Timeout: time.Second * 60,
+		}),
+	}, opts...)...)
+	return &Sungrow{Host: host, Username: username, Password: password, log: o.Logger}
 }
 
 func (s *Sungrow) Connect() error {
@@ -61,7 +71,14 @@ func (s *Sungrow) Connect() error {
 	}
 	log.Info().Msg("connecting")
 
-	dialer := websocket.Dialer{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	var tcc *tls.Config
+	if _, ok := s.c.Transport.(*http.Transport); ok {
+		tcc = s.c.Transport.(*http.Transport).TLSClientConfig
+	} else {
+		// FIXME: this also needs to be configurable
+		tcc = &tls.Config{}
+	}
+	dialer := websocket.Dialer{TLSClientConfig: tcc}
 	u := url.URL{Scheme: "wss", Host: s.Host, Path: "/ws/home/overview"}
 	ws, _, err := dialer.Dial(u.String(), nil)
 	if err != nil {
@@ -163,8 +180,7 @@ func (s *Sungrow) Get(path string, params map[string]string, v any) error {
 
 	s.log.Trace().Str("url", u.String()).Str("query", u.Query().Encode()).Msg("request")
 
-	c := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}, Timeout: time.Second * 30}
-	r, err := c.Get(u.String())
+	r, err := s.c.Get(u.String())
 	if err != nil {
 		return err
 	}

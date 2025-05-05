@@ -1,23 +1,37 @@
 package http
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/pmeier/redgiant"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 type Redgiant struct {
-	client *http.Client
-	host   string
+	host string
+	c    *http.Client
+	log  zerolog.Logger
 }
 
-func NewRedgiant(client *http.Client, host string, port uint) *Redgiant {
-	return &Redgiant{client: client, host: fmt.Sprintf("%s:%d", host, port)}
+func NewRedgiant(host string, port uint, opts ...redgiant.OptFunc) *Redgiant {
+	o := redgiant.ResolveOptions(append([]redgiant.OptFunc{
+		redgiant.WithLogger(log.Logger),
+		redgiant.WithHTTPClient(&http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+			Timeout: time.Second * 60,
+		}),
+	}, opts...)...)
+	return &Redgiant{host: fmt.Sprintf("%s:%d", host, port), c: o.HTTPClient, log: o.Logger}
 }
 
 func assertResponseSuccessful(r *http.Response) error {
@@ -34,8 +48,10 @@ func assertResponseSuccessful(r *http.Response) error {
 	return errors.New(msg)
 }
 
-func (hc *Redgiant) Health() error {
-	r, err := hc.client.Get((&url.URL{Scheme: "http", Host: hc.host, Path: "/health"}).String())
+func (rg *Redgiant) Health() error {
+	rg.log.Trace().Msg("Redgiant.Health()")
+
+	r, err := rg.c.Get((&url.URL{Scheme: "http", Host: rg.host, Path: "/health"}).String())
 	if err != nil {
 		return err
 	}
@@ -44,11 +60,14 @@ func (hc *Redgiant) Health() error {
 	return assertResponseSuccessful(r)
 }
 
-func (hc *Redgiant) getAPI(endpoint string, query url.Values, v any) error {
-	u := url.URL{Scheme: "http", Host: hc.host, Path: fmt.Sprintf("/api%s", endpoint)}
+func (rg *Redgiant) getAPI(endpoint string, query url.Values, v any) error {
+	rg.log.Trace().Str("endpoint", endpoint).Func(func(e *zerolog.Event) { e.Str("query", query.Encode()) }).Msg("Redgiant.getAPI()")
+
+	u := url.URL{Scheme: "http", Host: rg.host, Path: fmt.Sprintf("/api%s", endpoint)}
 	u.RawQuery = query.Encode()
 
-	r, err := hc.client.Get(u.String())
+	rg.log.Debug().Func(func(e *zerolog.Event) { e.Str("url", u.String()) }).Msg("GET")
+	r, err := rg.c.Get(u.String())
 	if err != nil {
 		return err
 	}
@@ -61,19 +80,25 @@ func (hc *Redgiant) getAPI(endpoint string, query url.Values, v any) error {
 	return json.NewDecoder(r.Body).Decode(v)
 }
 
-func (hc *Redgiant) About() (redgiant.About, error) {
+func (rg *Redgiant) About() (redgiant.About, error) {
+	rg.log.Trace().Msg("Redgiant.About()")
+
 	var a redgiant.About
-	return a, hc.getAPI("/about", nil, &a)
+	return a, rg.getAPI("/about", nil, &a)
 }
 
-func (hc *Redgiant) State() (redgiant.State, error) {
+func (rg *Redgiant) State() (redgiant.State, error) {
+	rg.log.Trace().Msg("Redgiant.State()")
+
 	var s redgiant.State
-	return s, hc.getAPI("/state", nil, &s)
+	return s, rg.getAPI("/state", nil, &s)
 }
 
-func (hc *Redgiant) Devices() ([]redgiant.Device, error) {
+func (rg *Redgiant) Devices() ([]redgiant.Device, error) {
+	rg.log.Trace().Msg("Redgiant.Devices()")
+
 	var ds []redgiant.Device
-	return ds, hc.getAPI("/devices", nil, &ds)
+	return ds, rg.getAPI("/devices", nil, &ds)
 }
 
 func dataEndpointQuery(dataType string, deviceID int, lang redgiant.Language, services []string) (string, url.Values) {
@@ -86,14 +111,18 @@ func dataEndpointQuery(dataType string, deviceID int, lang redgiant.Language, se
 	return e, q
 }
 
-func (hc *Redgiant) RealData(deviceID int, lang redgiant.Language, services ...string) ([]redgiant.RealMeasurement, error) {
+func (rg *Redgiant) RealData(deviceID int, lang redgiant.Language, services ...string) ([]redgiant.RealMeasurement, error) {
+	rg.log.Trace().Int("deviceID", deviceID).Stringer("lang", lang).Strs("services", services).Msg("Redgiant.RealData()")
+
 	endpoint, q := dataEndpointQuery("real", deviceID, lang, services)
 	var rms []redgiant.RealMeasurement
-	return rms, hc.getAPI(endpoint, q, &rms)
+	return rms, rg.getAPI(endpoint, q, &rms)
 }
 
-func (hc *Redgiant) DirectData(deviceID int, lang redgiant.Language, services ...string) ([]redgiant.DirectMeasurement, error) {
+func (rg *Redgiant) DirectData(deviceID int, lang redgiant.Language, services ...string) ([]redgiant.DirectMeasurement, error) {
+	rg.log.Trace().Int("deviceID", deviceID).Stringer("lang", lang).Strs("services", services).Msg("Redgiant.DirectData()")
+
 	endpoint, q := dataEndpointQuery("direct", deviceID, lang, services)
 	var dms []redgiant.DirectMeasurement
-	return dms, hc.getAPI(endpoint, q, &dms)
+	return dms, rg.getAPI(endpoint, q, &dms)
 }

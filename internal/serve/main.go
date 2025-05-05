@@ -11,7 +11,7 @@ import (
 )
 
 func Run(c config.Config) error {
-	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger().Level(c.LogLevel)
+	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout}).With().Timestamp().Logger().Level(c.LogLevel)
 
 	sg := redgiant.NewSungrow(c.Sungrow.Host, c.Sungrow.Username, c.Sungrow.Password, redgiant.WithLogger(logger))
 	rg := redgiant.NewRedgiant(sg, redgiant.WithLogger(logger))
