@@ -201,17 +201,8 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 		return errors.New("not connected")
 	}
 
-	m := map[string]any{
-		"lang":    "zh_cn",
-		"token":   s.token,
-		"service": service,
-	}
-	for k, v := range params {
-		m[k] = v
-	}
 	for {
-		s.log.Trace().Any("m", m).Msg("message")
-		resp, err := s.send(m)
+		resp, err := s.send(service, params)
 		if err != nil {
 			return err
 		}
@@ -220,8 +211,6 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 		if err := json.Unmarshal(resp.Data, &d); err != nil {
 			d = string(resp.Data)
 		}
-
-		s.log.Trace().EmbedObject(resp).Msg("response")
 
 		if resp.Code == 1 {
 			if v == nil {
@@ -236,7 +225,7 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 
 		switch resp.Code {
 		case 100, 104, 106:
-			// add a reconnect function with back-off
+			// FIXME: add a reconnect function with back-off
 			s.log.Info().Str("host", s.Host).Msg("reconnecting")
 			err = s.Connect()
 		default:
@@ -258,26 +247,48 @@ var responseCodesToBeDropped = []int{
 	103,
 }
 
-func (s *Sungrow) send(m map[string]any) (Response, error) {
-	s.log.Trace().Msg("Sungrow.send()")
+func (s *Sungrow) send(service string, params map[string]any) (*Response, error) {
+	s.log.Trace().Str("service", service).Any("params", params).Msg("Sungrow.send()")
+
+	m := map[string]any{
+		"lang":    "zh_cn",
+		"token":   s.token,
+		"service": service,
+	}
+	for k, v := range params {
+		m[k] = v
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	s.log.Trace().Any("m", m).Msg("write message")
 	if err := s.ws.WriteJSON(m); err != nil {
-		return Response{}, err
+		return nil, err
 	}
 
 	var r Response
 	for {
 		if err := s.ws.ReadJSON(&r); err != nil {
-			return Response{}, err
+			return nil, err
+		}
+		s.log.Trace().EmbedObject(r).Msg("read message")
+
+		if slices.Contains(responseCodesToBeDropped, r.Code) {
+			s.log.Debug().Msg("message dropped due to code")
+			continue
 		}
 
-		if !slices.Contains(responseCodesToBeDropped, r.Code) {
-			return r, nil
+		var sd struct {
+			Service string `json:"service"`
+		}
+		if err := json.Unmarshal(r.Data, &sd); err != nil {
+			return nil, err
+		} else if sd.Service != service {
+			s.log.Debug().Msg("response dropped due to service mismatch")
+			continue
 		}
 
-		s.log.Debug().EmbedObject(r).Msg("message dropped")
+		return &r, nil
 	}
 }
