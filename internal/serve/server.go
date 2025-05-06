@@ -29,7 +29,7 @@ func newServer(rg *redgiant.Redgiant, logger zerolog.Logger) *Server {
 	e.HidePort = true
 	e.Debug = true
 
-	s := &Server{Echo: e, log: logger}
+	s := &Server{Echo: e, rg: rg, log: logger}
 
 	routeFuncs := []routeFunc{
 		wrapBasicRouteFunc(health.HealthRouteFunc),
