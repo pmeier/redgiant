@@ -39,7 +39,7 @@ func (rg *Redgiant) Close() {
 
 func (rg *Redgiant) About() (About, error) {
 	type Data struct {
-		Measurements []RealMeasurement `json:"list"`
+		Measurements []sungrowRealMeasurement `json:"list"`
 	}
 	var d Data
 	if err := rg.sg.Get("/about/list", nil, &d); err != nil {
@@ -48,7 +48,7 @@ func (rg *Redgiant) About() (About, error) {
 
 	ms := map[string]string{}
 	for _, m := range d.Measurements {
-		ms[m.I18NCode] = m.Value
+		ms[m.DataName] = m.DataValue
 	}
 
 	return About{
