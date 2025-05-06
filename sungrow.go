@@ -57,7 +57,7 @@ func NewSungrow(host string, username string, password string, opts ...OptFunc) 
 			Timeout: time.Second * 60,
 		}),
 	}, opts...)...)
-	return &Sungrow{Host: host, Username: username, Password: password, log: o.Logger}
+	return &Sungrow{Host: host, Username: username, Password: password, c: o.HTTPClient, log: o.Logger}
 }
 
 func (s *Sungrow) Connect() error {
