@@ -178,25 +178,34 @@ func (s *Sungrow) Get(path string, params map[string]string, v any) error {
 	}
 	u.RawQuery = q.Encode()
 
+	r, err := s.get(u)
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(r.Data, v)
+}
+
+func (s *Sungrow) get(u url.URL) (*Response, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.log.Trace().Str("url", u.String()).Msg("request")
+	s.log.Trace().Str("u", u.String()).Msg("Sungrow.get()")
 
 	r, err := s.c.Get(u.String())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer r.Body.Close()
 
 	var resp Response
 	if err := json.NewDecoder(r.Body).Decode(&resp); err != nil {
-		return err
+		return nil, err
 	}
 
 	s.log.Trace().EmbedObject(resp).Msg("response")
 
-	return json.Unmarshal(resp.Data, v)
+	return &resp, nil
 }
 
 func (s *Sungrow) Send(service string, params map[string]any, v any) error {
@@ -206,8 +215,17 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 		return errors.New("not connected")
 	}
 
+	m := map[string]any{
+		"lang":    "zh_cn",
+		"token":   s.token,
+		"service": service,
+	}
+	for k, v := range params {
+		m[k] = v
+	}
+
 	for {
-		resp, err := s.send(service, params)
+		resp, err := s.send(service, m)
 		if err != nil {
 			return err
 		}
@@ -218,7 +236,7 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 		}
 
 		if resp.Code == 1 {
-			if v == nil {
+			if service == "ping" {
 				return nil
 			}
 
@@ -243,31 +261,17 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 	}
 }
 
-// Generally, there is a 1-to-1 correspondence between sent and received messages.
-// However, some messages are produced by the inverter without a corresponding one.
-// These messages have to be dropped.
 var responseCodesToBeDropped = []int{
-	// This code indicates that the session timed out,
-	// but this only applies to the native web UI.
+	// The session of the web UI timed out
 	103,
 }
 
-func (s *Sungrow) send(service string, params map[string]any) (*Response, error) {
-	s.log.Trace().Str("service", service).Any("params", params).Msg("Sungrow.send()")
-
-	m := map[string]any{
-		"lang":    "zh_cn",
-		"token":   s.token,
-		"service": service,
-	}
-	for k, v := range params {
-		m[k] = v
-	}
-
+func (s *Sungrow) send(service string, m map[string]any) (*Response, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.log.Trace().Any("m", m).Msg("write message")
+	s.log.Trace().Str("service", service).Any("m", m).Msg("Sungrow.send()")
+
 	if err := s.ws.WriteJSON(m); err != nil {
 		return nil, err
 	}
@@ -279,19 +283,22 @@ func (s *Sungrow) send(service string, params map[string]any) (*Response, error)
 		}
 		s.log.Trace().EmbedObject(r).Msg("read message")
 
+		// Generally, there is a 1-to-1 correspondence between sent and received messages.
+		// However, some messages are produced by the inverter without a corresponding one.
+		// These messages have to be dropped.
 		if slices.Contains(responseCodesToBeDropped, r.Code) {
-			s.log.Debug().Msg("message dropped due to code")
+			s.log.Debug().Str("reason", "code").Int("code", r.Code).Msg("message dropped")
 			continue
 		}
 
-		if len(r.Data) > 0 {
+		if service != "ping" {
 			var sd struct {
 				Service string `json:"service"`
 			}
 			if err := json.Unmarshal(r.Data, &sd); err != nil {
 				return nil, err
 			} else if sd.Service != service {
-				s.log.Debug().Msg("response dropped due to service mismatch")
+				s.log.Debug().Str("reason", "service mismatch").Str("write", service).Str("read", sd.Service).Msg("response dropped due to service mismatch")
 				continue
 			}
 		}
