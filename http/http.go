@@ -3,14 +3,13 @@ package http
 import (
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/pmeier/redgiant"
+	"github.com/pmeier/redgiant/internal/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -34,18 +33,17 @@ func NewRedgiant(host string, port uint, opts ...redgiant.OptFunc) *Redgiant {
 	return &Redgiant{host: fmt.Sprintf("%s:%d", host, port), c: o.HTTPClient, log: o.Logger}
 }
 
-func assertResponseSuccessful(r *http.Response) error {
+func assertRequestSuccessful(r *http.Response) *errors.Error {
 	if r.StatusCode >= 200 && r.StatusCode < 300 {
 		return nil
 	}
 
-	var msg string
-	if c, _ := io.ReadAll(r.Body); len(c) == 0 {
-		msg = r.Status
-	} else {
-		msg = string(c)
-	}
-	return errors.New(msg)
+	err := errors.New("request failed").HTTPRedacted(false)
+	// Int("code", r.StatusCode)
+	// if c, _ := io.ReadAll(r.Body); len(c) == 0 {
+	// 	err.Bytes("content", c)
+	// }
+	return err
 }
 
 func (rg *Redgiant) Health() error {
@@ -57,7 +55,7 @@ func (rg *Redgiant) Health() error {
 	}
 	defer r.Body.Close()
 
-	return assertResponseSuccessful(r)
+	return assertRequestSuccessful(r)
 }
 
 func (rg *Redgiant) getAPI(endpoint string, query url.Values, v any) error {
@@ -73,7 +71,7 @@ func (rg *Redgiant) getAPI(endpoint string, query url.Values, v any) error {
 	}
 	defer r.Body.Close()
 
-	if err := assertResponseSuccessful(r); err != nil {
+	if err := assertRequestSuccessful(r); err != nil {
 		return err
 	}
 

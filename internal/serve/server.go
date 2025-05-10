@@ -2,12 +2,15 @@ package serve
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/pmeier/redgiant"
+	"github.com/pmeier/redgiant/internal/errors"
 	"github.com/pmeier/redgiant/internal/health"
 	"github.com/rs/zerolog"
 )
@@ -27,7 +30,6 @@ func newServer(rg *redgiant.Redgiant, logger zerolog.Logger) *Server {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
-	e.Debug = true
 
 	s := &Server{Echo: e, rg: rg, log: logger}
 
@@ -59,6 +61,39 @@ func newServer(rg *redgiant.Redgiant, logger zerolog.Logger) *Server {
 			return nil
 		},
 	}))
+
+	e.HTTPErrorHandler = func(err error, c echo.Context) {
+		if c.Response().Committed {
+			return
+		}
+
+		var code int
+		var logData map[string]any
+		var httpData map[string]any
+		if rgerr, ok := err.(*errors.Error); ok {
+			code = rgerr.StatusCode
+			if err := json.Unmarshal([]byte(err.Error()), &logData); err != nil {
+				panic(err.Error())
+			}
+			if !rgerr.Redacted {
+				httpData = logData
+			}
+		} else {
+			code = http.StatusInternalServerError
+		}
+
+		if httpData == nil {
+			httpData = map[string]any{zerolog.MessageFieldName: http.StatusText(code)}
+		}
+
+		e := logger.Error()
+		for k, v := range logData {
+			e.Any(k, v)
+		}
+		e.Send()
+
+		c.JSON(code, httpData)
+	}
 
 	return s
 }

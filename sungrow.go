@@ -227,6 +227,7 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 	for {
 		resp, err := s.send(service, m)
 		if err != nil {
+			// FIXME reconnect here
 			return err
 		}
 
