@@ -185,7 +185,7 @@ func (s *Sungrow) reconnect() error {
 		}
 	}
 
-	return fmt.Errorf("unable to connect after %d retries: %s", s.maxReconnectRetries, err.Error())
+	return newSungrowDisconnectedError(fmt.Sprintf("unable to connect after %d retries: %s", s.maxReconnectRetries, err.Error()))
 }
 
 func (s *Sungrow) Get(path string, params map[string]string, v any) error {
