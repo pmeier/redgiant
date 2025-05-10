@@ -7,9 +7,10 @@ import (
 )
 
 type Options struct {
-	Logger     zerolog.Logger
-	Localizer  Localizer
-	HTTPClient *http.Client
+	Logger              zerolog.Logger
+	Localizer           Localizer
+	HTTPClient          *http.Client
+	MaxReconnectRetries uint
 }
 
 type OptFunc = func(*Options)
@@ -37,5 +38,11 @@ func WithLocalizer(l Localizer) OptFunc {
 func WithHTTPClient(c *http.Client) OptFunc {
 	return func(opts *Options) {
 		opts.HTTPClient = c
+	}
+}
+
+func WithReconnect(maxRetries uint) OptFunc {
+	return func(opts *Options) {
+		opts.MaxReconnectRetries = maxRetries
 	}
 }
