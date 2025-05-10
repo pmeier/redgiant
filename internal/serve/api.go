@@ -16,11 +16,13 @@ func getRouteFunc[P any, O any](path string, bindFunc func(echo.Context) (P, err
 			}
 
 			o, err := outputFunc(s.rg, p)
-			if err != nil {
-				// FIXME tmp to restart the server
+			switch err.(type) {
+			case redgiant.SungrowDisconnectedError:
 				panic(err.Error())
-				// return err
+			case error:
+				return err
 			}
+
 			return c.JSON(http.StatusOK, o)
 		}
 	}
