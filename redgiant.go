@@ -38,6 +38,8 @@ func (rg *Redgiant) Close() {
 }
 
 func (rg *Redgiant) About() (About, error) {
+	rg.log.Trace().Msg("Redgiant.About()")
+
 	type Data struct {
 		Measurements []sungrowRealMeasurement `json:"list"`
 	}
@@ -60,6 +62,8 @@ func (rg *Redgiant) About() (About, error) {
 }
 
 func (rg *Redgiant) State() (State, error) {
+	rg.log.Trace().Msg("Redgiant.State()")
+
 	var s sungrowState
 	if err := rg.sg.Send("state", nil, &s); err != nil {
 		return State{}, err

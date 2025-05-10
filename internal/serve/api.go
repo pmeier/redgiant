@@ -17,7 +17,9 @@ func getRouteFunc[P any, O any](path string, bindFunc func(echo.Context) (P, err
 
 			o, err := outputFunc(s.rg, p)
 			if err != nil {
-				return err
+				// FIXME tmp to restart the server
+				panic(err.Error())
+				// return err
 			}
 			return c.JSON(http.StatusOK, o)
 		}
