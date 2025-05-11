@@ -34,6 +34,18 @@ func (r Response) MarshalZerologObject(e *zerolog.Event) {
 	}
 }
 
+type SungrowDisconnectedError struct {
+	s string
+}
+
+func newSungrowDisconnectedError(text string) error {
+	return &SungrowDisconnectedError{s: text}
+}
+
+func (e SungrowDisconnectedError) Error() string {
+	return e.s
+}
+
 type Sungrow struct {
 	Host            string
 	Username        string
@@ -45,6 +57,7 @@ type Sungrow struct {
 	connected       bool
 	token           string
 	cancelHeartbeat context.CancelFunc
+	reconnectTries  uint
 }
 
 func NewSungrow(host string, username string, password string, opts ...OptFunc) *Sungrow {
@@ -56,8 +69,9 @@ func NewSungrow(host string, username string, password string, opts ...OptFunc) 
 			},
 			Timeout: time.Second * 60,
 		}),
+		WithReconnect(3),
 	}, opts...)...)
-	return &Sungrow{Host: host, Username: username, Password: password, c: o.HTTPClient, log: o.Logger}
+	return &Sungrow{Host: host, Username: username, Password: password, c: o.HTTPClient, log: o.Logger, reconnectTries: o.ReconnectTries}
 }
 
 func (s *Sungrow) Connect() error {
@@ -160,6 +174,24 @@ func (s *Sungrow) Close() {
 	s.log.Info().Str("host", s.Host).Msg("disconnected")
 }
 
+func (s *Sungrow) reconnect() error {
+	s.Close()
+
+	var err error
+	if s.reconnectTries >= 1 {
+
+		for try := range s.reconnectTries {
+			s.log.Info().Uint("try", try).Msg("reconnecting")
+			if err = s.Connect(); err == nil {
+				return nil
+			}
+		}
+	}
+
+	s.log.Error().Err(err).Msg("unable to reconnect")
+	return newSungrowDisconnectedError("unable to reconnect")
+}
+
 func (s *Sungrow) Get(path string, params map[string]string, v any) error {
 	s.log.Trace().Str("path", path).Any("params", params).Any("v", v).Msg("Sungrow.Get()")
 
@@ -178,12 +210,20 @@ func (s *Sungrow) Get(path string, params map[string]string, v any) error {
 	}
 	u.RawQuery = q.Encode()
 
-	r, err := s.get(u)
-	if err != nil {
-		return err
-	}
+	for {
+		r, err := s.get(u)
+		switch err.(type) {
+		case SungrowDisconnectedError:
+			if err := s.reconnect(); err != nil {
+				return err
+			}
+			continue
+		case error:
+			return err
+		}
 
-	return json.Unmarshal(r.Data, v)
+		return json.Unmarshal(r.Data, v)
+	}
 }
 
 func (s *Sungrow) get(u url.URL) (*Response, error) {
@@ -194,7 +234,7 @@ func (s *Sungrow) get(u url.URL) (*Response, error) {
 
 	r, err := s.c.Get(u.String())
 	if err != nil {
-		return nil, err
+		return nil, newSungrowDisconnectedError(err.Error())
 	}
 	defer r.Body.Close()
 
@@ -226,7 +266,13 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 
 	for {
 		resp, err := s.send(service, m)
-		if err != nil {
+		switch err.(type) {
+		case SungrowDisconnectedError:
+			if err := s.reconnect(); err != nil {
+				return err
+			}
+			continue
+		case error:
 			return err
 		}
 
@@ -235,28 +281,22 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 			d = string(resp.Data)
 		}
 
-		if resp.Code == 1 {
+		switch resp.Code {
+		case 1:
 			if service == "ping" {
 				return nil
 			}
 
 			return json.Unmarshal(resp.Data, v)
-		}
-
-		s.log.Error().EmbedObject(resp).Msg("message unsuccessful")
-		s.Close()
-
-		switch resp.Code {
 		case 100, 104, 106:
-			// FIXME: add a reconnect function with back-off
-			s.log.Info().Str("host", s.Host).Msg("reconnecting")
-			err = s.Connect()
+			// FIXME log
+			// s.log.Info().Str("host", s.Host).Msg("reconnecting")
+			if err := s.reconnect(); err != nil {
+				return err
+			}
+			continue
 		default:
-			err = errors.New("unknown server error")
-		}
-
-		if err != nil {
-			return err
+			return errors.New("unknown server error")
 		}
 	}
 }
@@ -273,13 +313,13 @@ func (s *Sungrow) send(service string, m map[string]any) (*Response, error) {
 	s.log.Trace().Str("service", service).Any("m", m).Msg("Sungrow.send()")
 
 	if err := s.ws.WriteJSON(m); err != nil {
-		return nil, err
+		return nil, newSungrowDisconnectedError(err.Error())
 	}
 
 	var r Response
 	for {
 		if err := s.ws.ReadJSON(&r); err != nil {
-			return nil, err
+			return nil, newSungrowDisconnectedError(err.Error())
 		}
 		s.log.Trace().EmbedObject(r).Msg("read message")
 
