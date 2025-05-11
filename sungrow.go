@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"slices"
@@ -48,17 +47,17 @@ func (e SungrowDisconnectedError) Error() string {
 }
 
 type Sungrow struct {
-	Host                string
-	Username            string
-	Password            string
-	log                 zerolog.Logger
-	c                   *http.Client
-	mu                  sync.Mutex
-	ws                  *websocket.Conn
-	connected           bool
-	token               string
-	cancelHeartbeat     context.CancelFunc
-	maxReconnectRetries uint
+	Host            string
+	Username        string
+	Password        string
+	log             zerolog.Logger
+	c               *http.Client
+	mu              sync.Mutex
+	ws              *websocket.Conn
+	connected       bool
+	token           string
+	cancelHeartbeat context.CancelFunc
+	reconnectTries  uint
 }
 
 func NewSungrow(host string, username string, password string, opts ...OptFunc) *Sungrow {
@@ -72,7 +71,7 @@ func NewSungrow(host string, username string, password string, opts ...OptFunc) 
 		}),
 		WithReconnect(3),
 	}, opts...)...)
-	return &Sungrow{Host: host, Username: username, Password: password, c: o.HTTPClient, log: o.Logger}
+	return &Sungrow{Host: host, Username: username, Password: password, c: o.HTTPClient, log: o.Logger, reconnectTries: o.MaxReconnectRetries}
 }
 
 func (s *Sungrow) Connect() error {
@@ -177,16 +176,20 @@ func (s *Sungrow) Close() {
 
 func (s *Sungrow) reconnect() error {
 	s.Close()
+
 	var err error
-	for try := range s.maxReconnectRetries {
-		s.log.Info().Uint("try", try).Msg("reconnecting")
-		if err = s.Connect(); err == nil {
-			return nil
+	if s.reconnectTries >= 1 {
+
+		for try := range s.reconnectTries {
+			s.log.Info().Uint("try", try).Msg("reconnecting")
+			if err = s.Connect(); err == nil {
+				return nil
+			}
 		}
 	}
 
-	s.log.Error().Err(err).Msg("unable to connect")
-	return newSungrowDisconnectedError(fmt.Sprintf("unable to connect after %d retries: %s", s.maxReconnectRetries, err.Error()))
+	s.log.Error().Err(err).Msg("unable to reconnect")
+	return newSungrowDisconnectedError("unable to reconnect")
 }
 
 func (s *Sungrow) Get(path string, params map[string]string, v any) error {
