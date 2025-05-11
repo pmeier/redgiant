@@ -178,13 +178,14 @@ func (s *Sungrow) Close() {
 func (s *Sungrow) reconnect() error {
 	s.Close()
 	var err error
-	for range s.maxReconnectRetries {
-		err = s.Connect()
-		if err == nil {
+	for try := range s.maxReconnectRetries {
+		s.log.Info().Uint("try", try).Msg("reconnecting")
+		if err = s.Connect(); err == nil {
 			return nil
 		}
 	}
 
+	s.log.Error().Err(err).Msg("unable to connect")
 	return newSungrowDisconnectedError(fmt.Sprintf("unable to connect after %d retries: %s", s.maxReconnectRetries, err.Error()))
 }
 
