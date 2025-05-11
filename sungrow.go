@@ -71,7 +71,7 @@ func NewSungrow(host string, username string, password string, opts ...OptFunc) 
 		}),
 		WithReconnect(3),
 	}, opts...)...)
-	return &Sungrow{Host: host, Username: username, Password: password, c: o.HTTPClient, log: o.Logger, reconnectTries: o.MaxReconnectRetries}
+	return &Sungrow{Host: host, Username: username, Password: password, c: o.HTTPClient, log: o.Logger, reconnectTries: o.ReconnectTries}
 }
 
 func (s *Sungrow) Connect() error {
