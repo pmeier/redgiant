@@ -47,7 +47,7 @@ func WaitForHealthy(host string, port uint, d time.Duration) error {
 }
 
 func Run(c config.Config) error {
-	if IsHealthy(c.Host, c.Port) {
+	if IsHealthy(c.Server.Host, c.Server.Port) {
 		return nil
 	} else {
 		return errors.New("server not healthy")

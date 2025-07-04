@@ -58,15 +58,6 @@ func ParseLanguage(langStr string) (Language, error) {
 	return NoLanguage, errors.New("unknown language")
 }
 
-func (l *Language) UnmarshalParam(param string) error {
-	lang, err := ParseLanguage(param)
-	if err != nil {
-		return err
-	}
-	*l = lang
-	return nil
-}
-
 type Localizer interface {
 	Localize(i18nCode string, lang Language) (string, error)
 }

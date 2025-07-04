@@ -1,7 +1,6 @@
 package serve
 
 import (
-	"os"
 	"time"
 
 	"github.com/pmeier/redgiant"
@@ -11,7 +10,10 @@ import (
 )
 
 func Run(c config.Config) error {
-	logger := zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout}).With().Timestamp().Logger().Level(c.LogLevel)
+
+	logger := zerolog.New(c.Logging.Format.Writer()).With().Timestamp().Logger().Level(c.Logging.Level)
+
+	logger.Info().Msg("Look at this!")
 
 	sg := redgiant.NewSungrow(c.Sungrow.Host, c.Sungrow.Username, c.Sungrow.Password, redgiant.WithLogger(logger))
 	rg := redgiant.NewRedgiant(sg, redgiant.WithLogger(logger))
@@ -22,7 +24,7 @@ func Run(c config.Config) error {
 	defer rg.Close()
 
 	s := newServer(rg, logger)
-	if err := s.Start(c.Host, c.Port, 5*time.Second); err != nil {
+	if err := s.Start(c.Server.Host, c.Server.Port, 5*time.Second); err != nil {
 		return err
 	}
 
