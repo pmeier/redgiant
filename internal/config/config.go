@@ -19,11 +19,6 @@ import (
 	"golang.org/x/term"
 )
 
-type ServerConfig struct {
-	Host string
-	Port uint
-}
-
 type LoggingFormat uint8
 
 const (
@@ -75,6 +70,11 @@ func (f LoggingFormat) Writer() io.Writer {
 	default:
 		panic("unknown logging format")
 	}
+}
+
+type ServerConfig struct {
+	Host string
+	Port uint
 }
 
 type LoggingConfig struct {
