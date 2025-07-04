@@ -10,10 +10,7 @@ import (
 )
 
 func Run(c config.Config) error {
-
 	logger := zerolog.New(c.Logging.Format.Writer()).With().Timestamp().Logger().Level(c.Logging.Level)
-
-	logger.Info().Msg("Look at this!")
 
 	sg := redgiant.NewSungrow(c.Sungrow.Host, c.Sungrow.Username, c.Sungrow.Password, redgiant.WithLogger(logger))
 	rg := redgiant.NewRedgiant(sg, redgiant.WithLogger(logger))
