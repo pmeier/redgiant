@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/pmeier/redgiant"
+	"github.com/pmeier/redgiant/internal/errors"
 	"github.com/pmeier/redgiant/internal/health"
 	"github.com/rs/zerolog"
 )
@@ -41,6 +42,29 @@ func newServer(rg *redgiant.Redgiant, logger zerolog.Logger) *Server {
 	}
 
 	e.StaticFS("/", echo.MustSubFS(staticFS, "static"))
+
+	e.HTTPErrorHandler = func(err error, c echo.Context) {
+		if c.Response().Committed {
+			return
+		}
+
+		var rge *errors.RedgiantError
+		switch err := err.(type) {
+		case *errors.RedgiantError:
+			rge = err
+		case *echo.HTTPError:
+			rge = errors.Wrap(
+				err,
+				errors.WithHTTPCode(err.Code),
+				errors.WithHTTPDetail(errors.MessageHTTPDetail),
+			).(*errors.RedgiantError)
+		default:
+			logger.Warn().Err(err).Msg("generic error")
+			rge = errors.New(err.Error(), errors.WithHTTPDetail(errors.NoHTTPDetail))
+		}
+		logger.Error().EmbedObject(rge).Send()
+		rge.SendAsResponse(c)
+	}
 
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
 		Skipper: func(c echo.Context) bool {
