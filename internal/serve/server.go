@@ -48,9 +48,9 @@ func newServer(rg *redgiant.Redgiant, logger zerolog.Logger) *Server {
 			return
 		}
 
-		var rge *errors.RedgiantError
+		var rge errors.RedgiantErrorer
 		switch err := err.(type) {
-		case *errors.RedgiantError:
+		case errors.RedgiantErrorer:
 			rge = err
 		case *echo.HTTPError:
 			rge = errors.Wrap(

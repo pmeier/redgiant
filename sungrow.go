@@ -35,16 +35,11 @@ func (r Response) MarshalZerologObject(e *zerolog.Event) {
 }
 
 type SungrowDisconnectedError struct {
-	s string
+	*errors.RedgiantError
 }
 
-// FIXME work out how this works with the intenral error now
-func newSungrowDisconnectedError(text string) error {
-	return &SungrowDisconnectedError{s: text}
-}
-
-func (e SungrowDisconnectedError) Error() string {
-	return e.s
+func newSungrowDisconnectedError(msg string) error {
+	return &SungrowDisconnectedError{RedgiantError: errors.New(msg, errors.WithHiddenFrames(2))}
 }
 
 type Sungrow struct {

@@ -11,6 +11,12 @@ import (
 	"github.com/rs/zerolog/pkgerrors"
 )
 
+type RedgiantErrorer interface {
+	error
+	zerolog.LogObjectMarshaler
+	SendAsResponse(c echo.Context)
+}
+
 type HTTPDetail uint8
 
 const (
@@ -22,19 +28,13 @@ const (
 type Context map[string]any
 
 type options struct {
-	cause      error
-	context    Context
-	httpCode   int
-	httpDetail HTTPDetail
+	context      Context
+	httpCode     int
+	httpDetail   HTTPDetail
+	hiddenFrames uint
 }
 
 type optFunc = func(*options)
-
-func withCause(err error) optFunc {
-	return func(o *options) {
-		o.cause = err
-	}
-}
 
 func WithContext(ctx Context) optFunc {
 	return func(o *options) {
@@ -54,28 +54,35 @@ func WithHTTPDetail(detail HTTPDetail) optFunc {
 	}
 }
 
+func WithHiddenFrames(n uint) optFunc {
+	return func(o *options) {
+		o.hiddenFrames = n
+	}
+}
+
 type RedgiantError struct {
-	err        error
-	cause      error
-	context    map[string]any
-	httpCode   int
-	httpDetail HTTPDetail
+	err          error
+	context      map[string]any
+	httpCode     int
+	httpDetail   HTTPDetail
+	hiddenFrames uint
 }
 
 func New(msg string, opts ...optFunc) *RedgiantError {
 	o := options{
-		httpCode:   http.StatusInternalServerError,
-		httpDetail: MessageHTTPDetail,
+		httpCode:     http.StatusInternalServerError,
+		httpDetail:   MessageHTTPDetail,
+		hiddenFrames: 1,
 	}
 	for _, fn := range opts {
 		fn(&o)
 	}
 	return &RedgiantError{
-		err:        errors.New(msg),
-		cause:      o.cause,
-		context:    o.context,
-		httpCode:   o.httpCode,
-		httpDetail: o.httpDetail,
+		err:          errors.New(msg),
+		context:      o.context,
+		httpCode:     o.httpCode,
+		httpDetail:   o.httpDetail,
+		hiddenFrames: o.hiddenFrames,
 	}
 }
 
@@ -84,7 +91,7 @@ func Wrap(err error, opts ...optFunc) error {
 		return nil
 	}
 
-	return New(err.Error(), append([]optFunc{withCause(err)}, opts...)...)
+	return New(err.Error(), append([]optFunc{WithHiddenFrames(2)}, opts...)...)
 }
 
 func (rge RedgiantError) Error() string {
@@ -96,13 +103,7 @@ func (rge RedgiantError) MarshalZerologObject(e *zerolog.Event) {
 
 	s := pkgerrors.MarshalStack(rge.err).([]map[string]string)
 	// drop the frames that show the construction of the RedgiantError
-	var o int
-	if rge.cause == nil {
-		o = 1
-	} else {
-		o = 2
-	}
-	e.Any(zerolog.ErrorStackFieldName, s[o:])
+	e.Any(zerolog.ErrorStackFieldName, s[rge.hiddenFrames:])
 
 	for k, v := range rge.context {
 		e.Any(k, v)
