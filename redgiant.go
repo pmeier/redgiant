@@ -1,10 +1,11 @@
 package redgiant
 
 import (
-	"errors"
+	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/pmeier/redgiant/internal/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -113,9 +114,12 @@ func (rg *Redgiant) getDeviceInfo(deviceID int) (deviceInfo, error) {
 
 	i, ok := rg.deviceInfoMap[deviceID]
 	if !ok {
-		msg := "unknown device"
-		rg.log.Error().Int("deviceID", deviceID).Msg(msg)
-		return deviceInfo{}, errors.New(msg)
+		return deviceInfo{}, errors.New(
+			"unknown device",
+			errors.WithContext(errors.Context{"deviceID": deviceID}),
+			errors.WithHTTPCode(http.StatusUnprocessableEntity),
+			errors.WithHTTPDetail(errors.ContextHTTPDetail),
+		)
 	}
 
 	return i, nil
@@ -139,7 +143,12 @@ func (rg *Redgiant) RealData(deviceID int, lang Language, services ...string) ([
 		var ok bool
 		services, ok = availableRealDataServices[info.Type]
 		if !ok {
-			return nil, errors.New("unknown device type")
+			return nil, errors.New(
+				"unknown device type",
+				errors.WithContext(errors.Context{"deviceType": info.Type}),
+				errors.WithHTTPCode(http.StatusUnprocessableEntity),
+				errors.WithHTTPDetail(errors.ContextHTTPDetail),
+			)
 		}
 		strict = false
 	} else {
@@ -197,7 +206,12 @@ func (rg *Redgiant) DirectData(deviceID int, lang Language, services ...string) 
 		var ok bool
 		services, ok = availableDirectDataServices[info.Type]
 		if !ok {
-			return nil, errors.New("unknown device type")
+			return nil, errors.New(
+				"unknown device type",
+				errors.WithContext(errors.Context{"deviceType": info.Type}),
+				errors.WithHTTPCode(http.StatusUnprocessableEntity),
+				errors.WithHTTPDetail(errors.ContextHTTPDetail),
+			)
 		}
 		strict = false
 	} else {

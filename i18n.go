@@ -3,13 +3,13 @@ package redgiant
 import (
 	"bufio"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/pmeier/redgiant/internal/errors"
 	"github.com/pmeier/redgiant/internal/utils"
 )
 
@@ -55,7 +55,12 @@ func ParseLanguage(langStr string) (Language, error) {
 			return lang, nil
 		}
 	}
-	return NoLanguage, errors.New("unknown language")
+	return NoLanguage, errors.New(
+		"unknown language",
+		errors.WithContext(errors.Context{"language": langStr}),
+		errors.WithHTTPCode(http.StatusUnprocessableEntity),
+		errors.WithHTTPDetail(errors.ContextHTTPDetail),
+	)
 }
 
 type Localizer interface {
@@ -83,18 +88,20 @@ func (l *SungrowLocalizer) getCodeMap(lang Language) (map[string]string, error) 
 	}
 
 	c := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
-	r, err := c.Get(fmt.Sprintf("https://%s/i18n/%s.properties", l.host, lang))
+	u := fmt.Sprintf("https://%s/i18n/%s.properties", l.host, lang)
+	r, err := c.Get(u)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, errors.WithContext(errors.Context{"url": u}))
 	}
 	defer r.Body.Close()
 
 	s := bufio.NewScanner(r.Body)
 	cm = map[string]string{}
 	for s.Scan() {
-		parts := strings.SplitN(s.Text(), "=", 2)
+		l := s.Text()
+		parts := strings.SplitN(l, "=", 2)
 		if len(parts) != 2 {
-			return nil, errors.New("unknown line format")
+			return nil, errors.New("unknown line format", errors.WithContext(errors.Context{"line": l}))
 		}
 		i18nCode, name := parts[0], parts[1]
 		cm[i18nCode] = name
@@ -119,7 +126,12 @@ func (l *SungrowLocalizer) Localize(i18nCode string, lang Language) (string, err
 
 	v, ok := cm[i18nCode]
 	if !ok {
-		return "", errors.New("unknown i18n code")
+		return "", errors.New(
+			"unknown i18n code",
+			errors.WithContext(errors.Context{"i18nCode": i18nCode, "language": lang.String()}),
+			errors.WithHTTPCode(http.StatusUnprocessableEntity),
+			errors.WithHTTPDetail(errors.ContextHTTPDetail),
+		)
 	}
 
 	if len(args) > 0 {

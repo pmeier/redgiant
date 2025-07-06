@@ -80,7 +80,7 @@ func New(msg string, opts ...optFunc) *RedgiantError {
 }
 
 func Wrap(err error, opts ...optFunc) error {
-	if err == nil {
+	if _, ok := err.(*RedgiantError); ok || err == nil {
 		return nil
 	}
 
