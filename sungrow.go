@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/url"
 	"slices"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/pmeier/redgiant/internal/errors"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -35,15 +35,11 @@ func (r Response) MarshalZerologObject(e *zerolog.Event) {
 }
 
 type SungrowDisconnectedError struct {
-	s string
+	*errors.RedgiantError
 }
 
-func newSungrowDisconnectedError(text string) error {
-	return &SungrowDisconnectedError{s: text}
-}
-
-func (e SungrowDisconnectedError) Error() string {
-	return e.s
+func newSungrowDisconnectedError(msg string) error {
+	return &SungrowDisconnectedError{RedgiantError: errors.New(msg, errors.WithHiddenFrames(2))}
 }
 
 type Sungrow struct {
@@ -96,7 +92,7 @@ func (s *Sungrow) Connect() error {
 	u := url.URL{Scheme: "wss", Host: s.Host, Path: "/ws/home/overview"}
 	ws, _, err := dialer.Dial(u.String(), nil)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	s.ws = ws
 
@@ -240,7 +236,7 @@ func (s *Sungrow) get(u url.URL) (*Response, error) {
 
 	var resp Response
 	if err := json.NewDecoder(r.Body).Decode(&resp); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	s.log.Trace().EmbedObject(resp).Msg("response")
@@ -273,7 +269,7 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 			}
 			continue
 		case error:
-			return err
+			return errors.Wrap(err)
 		}
 
 		var d any
@@ -336,7 +332,7 @@ func (s *Sungrow) send(service string, m map[string]any) (*Response, error) {
 				Service string `json:"service"`
 			}
 			if err := json.Unmarshal(r.Data, &sd); err != nil {
-				return nil, err
+				return nil, errors.Wrap(err)
 			} else if sd.Service != service {
 				s.log.Debug().Str("reason", "service mismatch").Str("write", service).Str("read", sd.Service).Msg("response dropped due to service mismatch")
 				continue
