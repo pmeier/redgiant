@@ -17,7 +17,7 @@ func getRouteFunc[P any, O any](path string, bindFunc func(echo.Context) (P, err
 
 			o, err := outputFunc(s.rg, p)
 			switch err.(type) {
-			case redgiant.SungrowDisconnectedError:
+			case *redgiant.SungrowDisconnectedError:
 				panic(err.Error())
 			case error:
 				return err

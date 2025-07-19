@@ -263,7 +263,7 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 	for {
 		resp, err := s.send(service, m)
 		switch err.(type) {
-		case SungrowDisconnectedError:
+		case *SungrowDisconnectedError:
 			if err := s.reconnect(); err != nil {
 				return err
 			}
