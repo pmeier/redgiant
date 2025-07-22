@@ -12,7 +12,13 @@ import (
 func Run(c config.Config) error {
 	logger := zerolog.New(c.Logging.Format.Writer()).With().Timestamp().Logger().Level(c.Logging.Level)
 
-	sg := redgiant.NewSungrow(c.Sungrow.Host, c.Sungrow.Username, c.Sungrow.Password, redgiant.WithLogger(logger))
+	sg := redgiant.NewSungrow(
+		c.Sungrow.Host,
+		c.Sungrow.Username,
+		c.Sungrow.Password,
+		redgiant.WithLogger(logger),
+		redgiant.WithReconnect(c.Sungrow.ReconnectTries),
+	)
 	rg := redgiant.NewRedgiant(sg, redgiant.WithLogger(logger))
 
 	if err := rg.Connect(); err != nil {
