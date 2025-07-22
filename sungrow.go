@@ -250,6 +250,12 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 	if (!s.connected && service != "connect") || (s.connected && s.token == "" && service != "login") {
 		return errors.New("not connected")
 	}
+	reconnect := func() error {
+		if service == "connect" || service == "login" {
+			return errors.New("unable to connect")
+		}
+		return s.reconnect()
+	}
 
 	m := map[string]any{
 		"lang":    "zh_cn",
@@ -264,7 +270,7 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 		resp, err := s.send(service, m)
 		switch err.(type) {
 		case *SungrowDisconnectedError:
-			if err := s.reconnect(); err != nil {
+			if err := reconnect(); err != nil {
 				return err
 			}
 			continue
@@ -285,9 +291,7 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 
 			return json.Unmarshal(resp.Data, v)
 		case 100, 104, 106:
-			// FIXME log
-			// s.log.Info().Str("host", s.Host).Msg("reconnecting")
-			if err := s.reconnect(); err != nil {
+			if err := reconnect(); err != nil {
 				return err
 			}
 			continue
