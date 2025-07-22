@@ -83,9 +83,10 @@ type LoggingConfig struct {
 }
 
 type SungrowConfig struct {
-	Host     string `validate:"required"`
-	Username string
-	Password string
+	Host           string `validate:"required"`
+	Username       string
+	Password       string
+	ReconnectTries uint
 }
 
 type Config struct {
@@ -142,8 +143,9 @@ func loadDefaults(v *viper.Viper) error {
 			Format: AutoLoggingFormat,
 		},
 		Sungrow: SungrowConfig{
-			Username: "user",
-			Password: "pw1111",
+			Username:       "user",
+			Password:       "pw1111",
+			ReconnectTries: 3,
 		},
 	}
 

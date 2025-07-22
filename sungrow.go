@@ -174,17 +174,15 @@ func (s *Sungrow) reconnect() error {
 	s.Close()
 
 	var err error
-	if s.reconnectTries >= 1 {
-
-		for try := range s.reconnectTries {
-			s.log.Info().Uint("try", try).Msg("reconnecting")
-			if err = s.Connect(); err == nil {
-				return nil
-			}
+	for try := range s.reconnectTries {
+		s.log.Info().Uint("try", try).Msg("reconnecting")
+		if err = s.Connect(); err == nil {
+			return nil
 		}
+		// FIXME: implement proper backoff here
+		time.Sleep(time.Second * 20)
 	}
 
-	s.log.Error().Err(err).Msg("unable to reconnect")
 	return newSungrowDisconnectedError("unable to reconnect")
 }
 
