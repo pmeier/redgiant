@@ -190,7 +190,7 @@ func (s *Sungrow) Get(path string, params map[string]string, v any) error {
 	s.log.Trace().Str("path", path).Any("params", params).Any("v", v).Msg("Sungrow.Get()")
 
 	if s.token == "" {
-		return errors.New("not connected")
+		return newSungrowDisconnectedError("not connected")
 	}
 
 	u := url.URL{Scheme: "https", Host: s.Host, Path: path}
@@ -246,11 +246,11 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 	s.log.Trace().Str("service", service).Any("params", params).Msg("Sungrow.Send()")
 
 	if (!s.connected && service != "connect") || (s.connected && s.token == "" && service != "login") {
-		return errors.New("not connected")
+		return newSungrowDisconnectedError("not connected")
 	}
 	reconnect := func() error {
 		if service == "connect" || service == "login" {
-			return errors.New("unable to connect")
+			return newSungrowDisconnectedError("unable to connect")
 		}
 		return s.reconnect()
 	}
