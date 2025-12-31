@@ -250,7 +250,7 @@ func (s *Sungrow) Get(path string, params map[string]string, v any) error {
 	defer s.mu.Unlock()
 
 	if s.status != StatusConnected {
-		return errors.New("not connected")
+		return newSungrowDisconnectedError("not connected")
 	}
 
 	u := url.URL{Scheme: "https", Host: s.Host, Path: path}
@@ -313,7 +313,7 @@ func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 	defer s.mu.Unlock()
 
 	if s.status != StatusConnected {
-		return errors.New("not connected")
+		return newSungrowDisconnectedError("not connected")
 	}
 
 	reconnect := func() error {
