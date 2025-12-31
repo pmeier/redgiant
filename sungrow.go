@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sync/singleflight"
+
 	"github.com/gorilla/websocket"
 	"github.com/pmeier/redgiant/internal/errors"
 
@@ -19,6 +21,14 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/google/uuid"
+)
+
+type ConnectionStatus int
+
+const (
+	StatusDisconnected ConnectionStatus = iota
+	StatusConnecting
+	StatusConnected
 )
 
 type Response struct {
@@ -49,8 +59,9 @@ type Sungrow struct {
 	log             zerolog.Logger
 	c               *http.Client
 	mu              sync.Mutex
+	sfg             singleflight.Group
+	status          ConnectionStatus
 	ws              *websocket.Conn
-	connected       bool
 	token           string
 	cancelHeartbeat context.CancelFunc
 	reconnectTries  uint
@@ -70,17 +81,58 @@ func NewSungrow(host string, username string, password string, opts ...OptFunc) 
 	return &Sungrow{Host: host, Username: username, Password: password, c: o.HTTPClient, log: o.Logger, reconnectTries: o.ReconnectTries}
 }
 
+func (s *Sungrow) reconnect() error {
+	_, err, _ := s.sfg.Do("reconnect", func() (any, error) {
+		for try := range s.reconnectTries {
+			s.mu.Lock()
+
+			s.log.Info().Uint("try", try).Msg("reconnecting")
+
+			s.closeLocked()
+			err := s.connectLocked()
+
+			s.mu.Unlock()
+
+			if err == nil {
+				return nil, nil
+			}
+
+			// FIXME: implement proper backoff here
+			time.Sleep(20 * time.Second)
+		}
+		return nil, newSungrowDisconnectedError("unable to reconnect")
+	})
+	return err
+}
+
 func (s *Sungrow) Connect() error {
-	s.log.Trace().Msg("Redgiant.Connect()")
+	s.log.Trace().Msg("Sungrow.Connect()")
 
-	log := s.log.With().Str("host", s.Host).Logger()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	if s.connected {
-		log.Debug().Msg("already connected")
+	if s.status == StatusConnected {
+		log.Debug().Str("host", s.Host).Msg("already connected")
 		return nil
 	}
+
+	return s.connectLocked()
+}
+
+func (s *Sungrow) connectLocked() error {
+	s.log.Trace().Msg("Sungrow.connectLocked()")
+
+	log := s.log.With().Str("host", s.Host).Logger()
 	log.Info().Msg("connecting")
 
+	success := false
+	defer func() {
+		if !success {
+			s.closeLocked()
+		}
+	}()
+
+	s.status = StatusConnecting
 	var tcc *tls.Config
 	if _, ok := s.c.Transport.(*http.Transport); ok {
 		tcc = s.c.Transport.(*http.Transport).TLSClientConfig
@@ -99,27 +151,35 @@ func (s *Sungrow) Connect() error {
 	type data struct {
 		Token string `json:"token"`
 	}
+	var d data
 
 	token := make([]byte, 32)
 	rand.Read(token)
-	var d data
-	err = s.Send("connect", map[string]any{"token": hex.EncodeToString(token), "id": uuid.NewString()}, &d)
+	r, err := s.sendLocked("connect", map[string]any{"token": hex.EncodeToString(token), "id": uuid.NewString()})
 	if err != nil {
 		return err
 	}
-	s.connected = true
+	if err = json.Unmarshal(r.Data, &d); err != nil {
+		return err
+	}
+
+	r, err = s.sendLocked("login", map[string]any{"token": d.Token, "username": "user", "passwd": s.Password})
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(r.Data, &d); err != nil {
+		return err
+	}
+	s.token = d.Token
+	s.status = StatusConnected
+
+	log.Info().Msg("connected")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancelHeartbeat = cancel
 	go s.heartbeat(ctx)
 
-	err = s.Send("login", map[string]any{"token": d.Token, "username": "user", "passwd": s.Password}, &d)
-	if err != nil {
-		return err
-	}
-	s.token = d.Token
-
-	log.Info().Msg("connected")
+	success = true
 	return nil
 }
 
@@ -141,55 +201,55 @@ func (s *Sungrow) heartbeat(ctx context.Context) {
 func (s *Sungrow) Close() {
 	s.log.Trace().Msg("Sungrow.Close()")
 
-	if s.ws == nil {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.status == StatusDisconnected {
 		s.log.Debug().Msg("already disconnected")
 		return
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.closeLocked()
+}
 
-	s.token = ""
+func (s *Sungrow) closeLocked() {
+	s.log.Trace().Msg("Sungrow.closeLocked()")
+
 	if s.cancelHeartbeat != nil {
 		s.cancelHeartbeat()
 	}
-	s.connected = false
 
-	wmt := websocket.CloseMessage
-	if err := s.ws.WriteMessage(wmt, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
-		s.log.Debug().Msg("connection closed by server")
-		return
-	}
-	rmt, _, err := s.ws.ReadMessage()
-	if err != nil {
-		s.log.Debug().Err(err).Msg("no closing message from server")
-	} else if rmt != wmt {
-		s.log.Debug().Int("write", wmt).Int("read", rmt).Msg("closing handshake message type mismatch")
+	s.status = StatusDisconnected
+	s.token = ""
+
+	if s.ws != nil {
+		closeMsg := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")
+		s.ws.SetWriteDeadline(time.Now().Add(time.Second))
+		if err := s.ws.WriteMessage(websocket.CloseMessage, closeMsg); err != nil {
+			s.log.Debug().Msg("failed to send websocket close message")
+		} else {
+			s.ws.SetReadDeadline(time.Now().Add(time.Second))
+			_, _, err := s.ws.ReadMessage()
+
+			if err != nil && !websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+				s.log.Debug().Err(err).Msg("websocket close handshake incomplete")
+			}
+		}
+
+		s.ws.Close()
+		s.ws = nil
 	}
 
 	s.log.Info().Str("host", s.Host).Msg("disconnected")
 }
 
-func (s *Sungrow) reconnect() error {
-	s.Close()
-
-	var err error
-	for try := range s.reconnectTries {
-		s.log.Info().Uint("try", try).Msg("reconnecting")
-		if err = s.Connect(); err == nil {
-			return nil
-		}
-		// FIXME: implement proper backoff here
-		time.Sleep(time.Second * 20)
-	}
-
-	return newSungrowDisconnectedError("unable to reconnect")
-}
-
 func (s *Sungrow) Get(path string, params map[string]string, v any) error {
 	s.log.Trace().Str("path", path).Any("params", params).Any("v", v).Msg("Sungrow.Get()")
 
-	if s.token == "" {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.status != StatusConnected {
 		return errors.New("not connected")
 	}
 
@@ -204,11 +264,18 @@ func (s *Sungrow) Get(path string, params map[string]string, v any) error {
 	}
 	u.RawQuery = q.Encode()
 
+	reconnect := func() error {
+		s.mu.Unlock()
+		err := s.reconnect()
+		s.mu.Lock()
+		return err
+	}
+
 	for {
-		r, err := s.get(u)
+		r, err := s.getLocked(u)
 		switch err.(type) {
-		case SungrowDisconnectedError:
-			if err := s.reconnect(); err != nil {
+		case *SungrowDisconnectedError:
+			if err := reconnect(); err != nil {
 				return err
 			}
 			continue
@@ -220,11 +287,8 @@ func (s *Sungrow) Get(path string, params map[string]string, v any) error {
 	}
 }
 
-func (s *Sungrow) get(u url.URL) (*Response, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.log.Trace().Str("u", u.String()).Msg("Sungrow.get()")
+func (s *Sungrow) getLocked(u url.URL) (*Response, error) {
+	s.log.Trace().Str("u", u.String()).Msg("Sungrow.getLocked()")
 
 	r, err := s.c.Get(u.String())
 	if err != nil {
@@ -245,27 +309,22 @@ func (s *Sungrow) get(u url.URL) (*Response, error) {
 func (s *Sungrow) Send(service string, params map[string]any, v any) error {
 	s.log.Trace().Str("service", service).Any("params", params).Msg("Sungrow.Send()")
 
-	if (!s.connected && service != "connect") || (s.connected && s.token == "" && service != "login") {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.status != StatusConnected {
 		return errors.New("not connected")
 	}
-	reconnect := func() error {
-		if service == "connect" || service == "login" {
-			return errors.New("unable to connect")
-		}
-		return s.reconnect()
-	}
 
-	m := map[string]any{
-		"lang":    "zh_cn",
-		"token":   s.token,
-		"service": service,
-	}
-	for k, v := range params {
-		m[k] = v
+	reconnect := func() error {
+		s.mu.Unlock()
+		err := s.reconnect()
+		s.mu.Lock()
+		return err
 	}
 
 	for {
-		resp, err := s.send(service, m)
+		resp, err := s.sendLocked(service, params)
 		switch err.(type) {
 		case *SungrowDisconnectedError:
 			if err := reconnect(); err != nil {
@@ -304,11 +363,17 @@ var responseCodesToBeDropped = []int{
 	103,
 }
 
-func (s *Sungrow) send(service string, m map[string]any) (*Response, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *Sungrow) sendLocked(service string, params map[string]any) (*Response, error) {
+	s.log.Trace().Str("service", service).Any("params", params).Msg("Sungrow.sendLocked()")
 
-	s.log.Trace().Str("service", service).Any("m", m).Msg("Sungrow.send()")
+	m := map[string]any{
+		"lang":    "zh_cn",
+		"token":   s.token,
+		"service": service,
+	}
+	for k, v := range params {
+		m[k] = v
+	}
 
 	if err := s.ws.WriteJSON(m); err != nil {
 		return nil, newSungrowDisconnectedError(err.Error())
